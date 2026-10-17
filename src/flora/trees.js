@@ -463,7 +463,7 @@ export class Forest {
           const knob = 1 + 0.18 * this.nz.noise2(x * 0.9 + j, (cy + es * hy) * 0.7 + f * 3);
           const w = th * wedge * knob;
           pts.push(new THREE.Vector3(x + side.x * ec * w, cy + es * hy, z + side.z * ec * w));
-          nrm.push(new THREE.Vector3(side.x * c / w, sn / hy * 0.6 + (es < 0 ? 0.3 : 0), side.z * c / w).normalize());
+          nrm.push(new THREE.Vector3(side.x * c / w, sn / hy * 0.6, side.z * c / w).normalize());
         }
         rings.push({ pts, nrm, v: (t * fr) / 1.4 });
         const ctr = new THREE.Vector3(x, gy + Math.min(1.2, (top - gy) * 0.5), z);
