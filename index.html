@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Amazonia — a dragonfly's rainforest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="loading">
+    <div class="title">Amazonia</div>
+    <div class="sub">a rainforest from a dragonfly's eye</div>
+    <div class="bar"><div id="loadbar"></div></div>
+    <div id="loadmsg">Germinating seeds…</div>
+  </div>
+
+  <div id="start" class="hidden">
+    <div class="card">
+      <div class="title">Amazonia</div>
+      <div class="sub">You are a flame skimmer, eight centimetres long, in a world fifty metres tall.</div>
+      <div class="buttons">
+        <button id="flyBtn">Fly</button>
+        <button id="tourBtn" class="ghost">Watch the tour</button>
+      </div>
+      <div class="keys">
+        <span><b>Mouse</b> look</span><span><b>W A S D</b> fly</span><span><b>Space / E</b> rise</span>
+        <span><b>Q / C</b> sink</span><span><b>Shift</b> dart</span><span><b>Wheel</b> cruise speed</span>
+        <span><b>V</b> first person</span><span><b>T</b> tour</span><span><b>M</b> mute</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div id="layer"><div id="layerName"></div><div id="layerNote"></div><div id="layerAlt"></div></div>
+    <div id="fps"></div>
+    <div id="help" class="hidden">Mouse look · WASD fly · Space/E up · Q/C down · Shift dart · V camera · T tour · M mute · H hide</div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
