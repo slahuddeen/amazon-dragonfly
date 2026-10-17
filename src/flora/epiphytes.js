@@ -18,10 +18,10 @@ function rosette(rng, { n, len, width, elev, droop, cell, center, tint, fold = 0
     const el = elev[0] + (elev[1] - elev[0]) * (1 - ring) + rng.range(-0.1, 0.1);
     const dir = new THREE.Vector3(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el));
     const L = len * rng.range(0.75, 1.1) * (0.7 + 0.3 * ring);
-    const pts = frondPoints(new THREE.Vector3(Math.cos(a) * 0.01, 0, Math.sin(a) * 0.01), dir, L, droop / L, 6, rng);
+    const pts = frondPoints(new THREE.Vector3(Math.cos(a) * 0.01, 0, Math.sin(a) * 0.01), dir, L, droop / L, 4, rng);
     const v = rng.range(0.85, 1.1);
     mb.setColor(tint ? tint.clone().multiplyScalar(v) : [v, v, v]);
-    addRibbon(mb, pts, pts.map((_, k) => width * (k === 0 ? 0.7 : 1) * (1 - Math.pow(k / 6, 3) * 0.6)), cellRect(cell), { fold, windFn: (s) => 0.02 * s });
+    addRibbon(mb, pts, pts.map((_, k) => width * (k === 0 ? 0.7 : 1) * (1 - Math.pow(k / 4, 3) * 0.6)), cellRect(cell), { fold, windFn: (s) => 0.02 * s });
   }
   return mb;
 }
@@ -40,18 +40,18 @@ function protoParts(map, M) {
 const EPI = {
   bromeliad(rng, kind) {
     const tints = [C(0xffffff), C(0xffc0b0), C(0xd8e0ff), C(0xfff0a0)];
-    const leaf = rosette(rng, { n: rng.int(12, 18), len: 0.5, width: 0.055, elev: [1.3, 0.35], droop: 0.25, cell: CELL.strap, tint: tints[kind % 4] });
+    const leaf = rosette(rng, { n: rng.int(9, 13), len: 0.5, width: 0.055, elev: [1.3, 0.35], droop: 0.25, cell: CELL.strap, tint: tints[kind % 4] });
     const g = new MeshBuilder();
     // water tank + central inflorescence
     g.setColor(C(0x0a0a06));
-    addEllipsoid(g, new THREE.Vector3(0, 0.06, 0), 0.05, 0.01, 0.05, { w: 8, h: 3 });
+    addEllipsoid(g, new THREE.Vector3(0, 0.06, 0), 0.05, 0.01, 0.05, { w: 6, h: 2 });
     if (kind === 1 || kind === 3) {
       g.setColor(kind === 1 ? C(0xe02040) : C(0xf08020));
       const n = 7;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * 6.28;
         const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, a, 0, 'YXZ'));
-        addEllipsoid(g, new THREE.Vector3(Math.cos(a) * 0.03, 0.18 + (i % 2) * 0.03, Math.sin(a) * 0.03), 0.018, 0.06, 0.012, { w: 6, h: 4, quat: q });
+        addEllipsoid(g, new THREE.Vector3(Math.cos(a) * 0.03, 0.18 + (i % 2) * 0.03, Math.sin(a) * 0.03), 0.018, 0.06, 0.012, { w: 4, h: 3, quat: q });
       }
     }
     return { plantLeaf: leaf, glossy: g };
@@ -73,12 +73,12 @@ const EPI = {
   },
   moss(rng) {
     const g = new MeshBuilder();
-    const n = rng.int(4, 8);
+    const n = rng.int(3, 6);
     for (let i = 0; i < n; i++) {
       const c = new THREE.Vector3(rng.range(-0.25, 0.25), 0, rng.range(-0.12, 0.12));
       const s = rng.range(0.06, 0.13);
       g.setColor(new THREE.Color(0x3a5a18).lerp(C(0x6a8a28), rng.next()));
-      addEllipsoid(g, c, s, s * 0.55, s, { w: 7, h: 5, disp: (x, y, z) => 1 + 0.18 * Math.sin(x * 13 + z * 11) * Math.cos(y * 7) });
+      addEllipsoid(g, c, s, s * 0.55, s, { w: 5, h: 4, disp: (x, y, z) => 1 + 0.18 * Math.sin(x * 13 + z * 11) * Math.cos(y * 7) });
     }
     return { plain: g };
   },
@@ -111,11 +111,11 @@ export class Epiphytes {
     }
   }
   registerAll() {
-    this.register('bromeliad', EPI.bromeliad, 4, { maxDist: 140 });
-    this.register('birdsnest', EPI.birdsnest, 2, { maxDist: 140 });
-    this.register('orchid', EPI.orchid, 2, { maxDist: 90, castShadow: false });
-    this.register('moss', EPI.moss, 3, { maxDist: 90, castShadow: false });
-    this.register('fernlet', EPI.fernlet, 2, { maxDist: 90, castShadow: false });
+    this.register('bromeliad', EPI.bromeliad, 3, { maxDist: 110, castShadow: false });
+    this.register('birdsnest', EPI.birdsnest, 2, { maxDist: 120, castShadow: false });
+    this.register('orchid', EPI.orchid, 2, { maxDist: 60, castShadow: false });
+    this.register('moss', EPI.moss, 2, { maxDist: 60, castShadow: false });
+    this.register('fernlet', EPI.fernlet, 2, { maxDist: 60, castShadow: false });
     this.register('termite', EPI.termite, 2, { maxDist: 140 });
   }
   place(name, pos, up, dirHint, scale, color) {
@@ -167,7 +167,7 @@ export class Epiphytes {
         return { p, out };
       };
       if (rngT.chance(0.8)) {
-        const n = rngT.int(1, 4) + Math.floor(t.radius * 3);
+        const n = rngT.int(1, 3) + Math.floor(t.radius * 2);
         for (let k = 0; k < n; k++) {
           const { p, out } = place('bromeliad', rngT.range(0.08, 0.6), 1);
           const up = out.clone().multiplyScalar(0.6).add(UP);
@@ -197,7 +197,7 @@ export class Epiphytes {
         if (run.length > 1) addTube(mb, run, run.map(() => 0.025), { radial: 5 });
       }
       if (t.radius > 0.4) {
-        for (let k = 0; k < Math.floor(t.radius * 4); k++) {
+        for (let k = 0; k < Math.floor(t.radius * 2.5); k++) {
           const { p, out } = place('moss', rngT.range(0.05, 0.45), 1, 0.95);
           this.place(rngT.chance(0.6) ? 'moss' : 'fernlet', p, out.clone().add(UP), null, rngT.range(0.8, 1.6));
         }

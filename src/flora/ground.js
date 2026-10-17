@@ -147,6 +147,7 @@ export class Ground {
     const sprigs = ringMesh(sprigGeometry(), sprigMat, Math.round(6500 * D), 18, [0.6, 1.6], this.rng);
     for (const m of [litterMat, sprigMat]) { m.userData.ring.uHeightMap.value = heightTex; this.rings.push(m.userData.ring); }
     litter.name = 'litterRing'; sprigs.name = 'sprigRing';
+    litter.layers.set(1); sprigs.layers.set(1);
     group.add(litter, sprigs);
     return group;
   }

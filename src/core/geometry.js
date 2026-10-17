@@ -235,10 +235,10 @@ export function addLathe(mb, c, profile, opts = {}) {
 }
 
 // ------------------------------------------------------------------ chunking
-export function chunkOf(x, z) {
-  const n = Math.ceil(WORLD.size / WORLD.chunk);
-  const cx = Math.max(0, Math.min(n - 1, Math.floor((x + WORLD.half) / WORLD.chunk)));
-  const cz = Math.max(0, Math.min(n - 1, Math.floor((z + WORLD.half) / WORLD.chunk)));
+export function chunkOf(x, z, size = WORLD.chunk) {
+  const n = Math.ceil(WORLD.size / size);
+  const cx = Math.max(0, Math.min(n - 1, Math.floor((x + WORLD.half) / size)));
+  const cz = Math.max(0, Math.min(n - 1, Math.floor((z + WORLD.half) / size)));
   return cx + ',' + cz;
 }
 
@@ -346,6 +346,7 @@ export class CardSystem {
       mesh.receiveShadow = true;
       mesh.customDepthMaterial = depthMaterial;
       mesh.name = 'cards|' + key;
+      if (c.layer !== 'crown') mesh.layers.set(1);
       mesh.computeBoundingSphere();
       // leaves bend & sway: pad the bounds a little
       mesh.boundingSphere.radius += 3;
@@ -367,7 +368,7 @@ export class Scatter {
     const p = this.protos.get(name);
     if (!p) throw new Error('unknown proto ' + name);
     const e = matrix.elements;
-    const key = chunkOf(e[12], e[14]);
+    const key = chunkOf(e[12], e[14], 65);
     let c = p.chunks.get(key);
     if (!c) { c = { m: [], col: [] }; p.chunks.set(key, c); }
     for (let i = 0; i < 16; i++) c.m.push(e[i]);
@@ -387,6 +388,7 @@ export class Scatter {
           mesh.receiveShadow = true;
           if (part.customDepthMaterial) mesh.customDepthMaterial = part.customDepthMaterial;
           mesh.name = name + '|' + key;
+          mesh.layers.set(1); // main view + shadows only, skipped by the water reflection
           mesh.computeBoundingSphere();
           group.add(mesh);
           culler.add(mesh, p.opts.maxDist ?? 110);

@@ -377,7 +377,7 @@ export function createWebs(spots, rng) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  const lm = new THREE.LineBasicMaterial({ color: 0xdde8e0, transparent: true, opacity: 0.32, depthWrite: false, fog: true });
+  const lm = new THREE.LineBasicMaterial({ color: 0xdde8e0, transparent: true, opacity: 0.16, depthWrite: false, fog: true });
   const lines = new THREE.LineSegments(g, lm);
   lines.name = 'webs';
   group.add(lines);

@@ -17,11 +17,11 @@ class Proto {
 
 function leafOnPetiole(P, base, dir, petLen, leafSize, cell, rng, opts = {}) {
   // petiole as a thin bent tube, leaf card at the end
-  const pts = frondPoints(base, dir, petLen, opts.petDroop ?? 0.4, 4);
+  const pts = frondPoints(base, dir, petLen, opts.petDroop ?? 0.4, 3);
   const mp = P.get('plainWind');
   mp.setColor(opts.petColor || C(0x4a6a2a));
   const n = pts.length;
-  addTube(mp, pts, pts.map((_, i) => (opts.petR ?? 0.01) * (1 - i / n * 0.4)), { radial: 4, windFn: (i) => (i / (n - 1)) * 0.05 * petLen });
+  addTube(mp, pts, pts.map((_, i) => (opts.petR ?? 0.01) * (1 - i / n * 0.4)), { radial: 3, windFn: (i) => (i / (n - 1)) * 0.05 * petLen });
   const end = pts[n - 1];
   const tang = new THREE.Vector3().subVectors(end, pts[n - 2]).normalize();
   const ydir = tang.clone().lerp(new THREE.Vector3(tang.x, -0.25, tang.z), opts.leafDroop ?? 0.5);
@@ -31,7 +31,7 @@ function leafOnPetiole(P, base, dir, petLen, leafSize, cell, rng, opts = {}) {
   ml.setColor(opts.leafColor || C(0xffffff));
   const w = leafSize * (opts.aspect ?? 1);
   addCard(ml, end, _X, _Y, w, leafSize, cellRect(cell), {
-    bend: opts.bend ?? -0.12, fold: opts.fold ?? 0.08, segX: 2, segY: 3,
+    bend: opts.bend ?? -0.12, fold: opts.fold ?? 0.08, segX: 2, segY: 2,
     windBase: 0.05 * petLen, windTip: 0.05 * petLen + 0.06 * leafSize,
   });
   return end;
@@ -41,16 +41,17 @@ const PROTOS = {
   fern(rng, big = 1) {
     const P = new Proto();
     const mb = P.get('plantLeaf');
-    const n = rng.int(8, 13);
+    const n = big < 0.8 ? rng.int(5, 8) : rng.int(8, 12);
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + rng.range(-0.3, 0.3);
       const elev = rng.range(0.55, 1.25);
       const dir = new THREE.Vector3(Math.cos(a) * Math.cos(elev), Math.sin(elev), Math.sin(a) * Math.cos(elev));
       const L = rng.range(0.7, 1.3) * big;
-      const pts = frondPoints(new THREE.Vector3(0, 0.02, 0), dir, L, 0.9 / L, 8, rng);
+      const nSeg = big < 0.8 ? 4 : 6;
+      const pts = frondPoints(new THREE.Vector3(0, 0.02, 0), dir, L, 0.9 / L, nSeg, rng);
       const v = rng.range(0.85, 1.12);
       mb.setColor([v * rng.range(0.95, 1.08), v, v * 0.92]);
-      addRibbon(mb, pts, frondWidths(8, 0.2 * big * rng.range(0.85, 1.1), 0.55), cellRect(CELL.fern), { fold: 0.25, windFn: (s) => 0.06 * s * s * big });
+      addRibbon(mb, pts, frondWidths(nSeg, 0.2 * big * rng.range(0.85, 1.1), 0.55), cellRect(CELL.fern), { fold: 0.25, windFn: (s) => 0.06 * s * s * big });
     }
     return P;
   },
@@ -272,7 +273,7 @@ const PROTOS = {
       const mp = P.get('plain'); mp.setColor(C(k.stem));
       addTube(mp, [b, b.clone().add(new THREE.Vector3(0, h, 0))], [cr * 0.25, cr * 0.2], { radial: 5 });
       const mg = P.get('glossy'); mg.setColor(C(k.cap));
-      addLathe(mg, b.clone().add(new THREE.Vector3(0, h, 0)), [[cr * 0.2, -cr * 0.15], [cr, -cr * 0.1], [cr * 0.95, cr * 0.15], [cr * 0.6, cr * 0.45], [0.001, cr * 0.55]], { seg: 10 });
+      addLathe(mg, b.clone().add(new THREE.Vector3(0, h, 0)), [[cr * 0.2, -cr * 0.15], [cr, -cr * 0.1], [cr * 0.8, cr * 0.3], [0.001, cr * 0.55]], { seg: 7 });
     }
     return P;
   },
@@ -373,7 +374,7 @@ const PROTOS = {
       addTube(mp, [b, top], [cr * 0.12, cr * 0.08], { radial: 5 });
       const mg = P.get('plain');
       addLathe(mg, top, [[cr * 0.1, -cr * 0.05], [cr, -cr * 0.18], [cr * 0.9, cr * 0.02], [cr * 0.5, cr * 0.25], [0.001, cr * 0.32]], {
-        seg: 14, colorFn: (t) => (t > 0.8 ? C(0x7a4a2a) : C(0xe8dcc8).lerp(C(0xb08a60), t * 0.6)),
+        seg: 9, colorFn: (t) => (t > 0.8 ? C(0x7a4a2a) : C(0xe8dcc8).lerp(C(0xb08a60), t * 0.6)),
       });
     }
     return P;
@@ -387,7 +388,7 @@ const PROTOS = {
       const c = new THREE.Vector3(Math.cos(a) * off, 0, Math.sin(a) * off);
       const r = rng.range(0.008, 0.025);
       g.setColor(C(col));
-      addLathe(g, c, [[0.001, 0], [r * 0.5, r * 0.2], [r, r * 0.9], [r * 0.8, r * 0.75], [r * 0.4, r * 0.35], [0.001, r * 0.3]], { seg: 10 });
+      addLathe(g, c, [[0.001, 0], [r, r * 0.9], [r * 0.75, r * 0.7], [0.001, r * 0.3]], { seg: 7 });
     }
     return P;
   },
@@ -475,28 +476,28 @@ export class Plants {
   registerAll() {
     const P = PROTOS;
     this.register('fern', (r) => P.fern(r, 1), 3, { maxDist: 90 });
-    this.register('fernSmall', (r) => P.fern(r, 0.5), 2, { maxDist: 60, castShadow: false });
+    this.register('fernSmall', (r) => P.fern(r, 0.5), 2, { maxDist: 45, castShadow: false });
     this.register('heliconia', P.heliconia, 3, { maxDist: 110 });
-    this.register('philodendron', (r) => P.aroid(r, false), 2, { maxDist: 90 });
+    this.register('philodendron', (r) => P.aroid(r, false), 2, { maxDist: 80, castShadow: false });
     this.register('monstera', (r) => P.aroid(r, true), 2, { maxDist: 100 });
-    this.register('calathea', P.calathea, 2, { maxDist: 70, castShadow: false });
+    this.register('calathea', P.calathea, 2, { maxDist: 55, castShadow: false });
     this.register('ivoryPalm', P.ivoryPalm, 3, { maxDist: 120 });
     this.register('geonoma', P.geonoma, 3, { maxDist: 100 });
-    this.register('seedling', P.seedling, 4, { maxDist: 45, castShadow: false });
-    this.register('psychotria', P.psychotria, 2, { maxDist: 70 });
+    this.register('seedling', P.seedling, 3, { maxDist: 35, castShadow: false });
+    this.register('psychotria', P.psychotria, 2, { maxDist: 60, castShadow: false });
     this.register('costus', P.costus, 2, { maxDist: 80 });
     this.register('reeds', P.reeds, 2, { maxDist: 80, castShadow: false });
-    this.register('mushrooms', P.mushrooms, 5, { maxDist: 35, castShadow: false });
-    this.register('bracket', P.bracket, 4, { maxDist: 60, castShadow: false });
+    this.register('mushrooms', P.mushrooms, 4, { maxDist: 28, castShadow: false });
+    this.register('bracket', P.bracket, 3, { maxDist: 45, castShadow: false });
     this.register('lily', P.lily, 4, { maxDist: 160, castShadow: false });
     this.register('hyacinth', P.hyacinth, 2, { maxDist: 120, castShadow: false });
     this.register('petals', P.petals, 1, { maxDist: 60, castShadow: false });
-    this.register('sticks', P.sticks, 6, { maxDist: 55, castShadow: false });
+    this.register('sticks', P.sticks, 4, { maxDist: 40, castShadow: false });
     this.register('deadFrond', P.deadFrond, 4, { maxDist: 60, castShadow: false });
-    this.register('parasols', P.parasols, 3, { maxDist: 35, castShadow: false });
-    this.register('cupFungi', P.cupFungi, 4, { maxDist: 30, castShadow: false });
-    this.register('coral', P.coral, 4, { maxDist: 30, castShadow: false });
-    this.register('peaceLily', P.peaceLily, 3, { maxDist: 70, castShadow: false });
+    this.register('parasols', P.parasols, 2, { maxDist: 28, castShadow: false });
+    this.register('cupFungi', P.cupFungi, 3, { maxDist: 22, castShadow: false });
+    this.register('coral', P.coral, 3, { maxDist: 22, castShadow: false });
+    this.register('peaceLily', P.peaceLily, 2, { maxDist: 55, castShadow: false });
   }
 
   add(name, x, y, z, rotY, scale, color, tilt = 0.08) {

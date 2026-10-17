@@ -21,7 +21,7 @@ const LEAF_TINTS = {
 
 export const SPECIES = {
   giant: {
-    crown: { base: 0.7, R: [13, 18], ry: 0.42, cut: 0.35, count: 1600, D: 0.9, di: 9, dk: 1.5, shell: 0.6, tropism: 0.05, tipR: 0.04, minR: 0.05, trunkTaper: 0.55, cards: [3, 4], size: [2.0, 2.8] },
+    crown: { base: 0.7, R: [13, 18], ry: 0.42, cut: 0.35, count: 1600, D: 0.9, di: 9, dk: 1.5, shell: 0.6, tropism: 0.05, tipR: 0.04, minR: 0.09, trunkTaper: 0.55, cards: [3, 4], size: [2.0, 2.8] },
     bark: 'barkSmooth', tint: 0xd8d0c0,
     trunk: { h: [56, 68], r: [1.9, 2.5] },
     buttress: { n: [7, 10], h: [7, 11.5], reach: [7, 12], thick: 0.55, chance: 1 },
@@ -35,7 +35,7 @@ export const SPECIES = {
     tints: ['mid', 'dark', 'olive'], epi: 1.4, hang: 1.4, flare: 1.1,
   },
   kapok: {
-    crown: { base: 0.7, R: [11, 15], ry: 0.42, cut: 0.35, count: 1300, D: 0.9, di: 8.5, dk: 1.5, shell: 0.6, tropism: 0.05, tipR: 0.035, minR: 0.045, trunkTaper: 0.55, cards: [3, 4], size: [1.9, 2.7] },
+    crown: { base: 0.7, R: [11, 15], ry: 0.42, cut: 0.35, count: 1300, D: 0.9, di: 8.5, dk: 1.5, shell: 0.6, tropism: 0.05, tipR: 0.035, minR: 0.065, trunkTaper: 0.55, cards: [3, 4], size: [1.9, 2.7] },
     bark: 'barkSmooth', tint: 0xe0dccc,
     trunk: { h: [46, 54], r: [1.4, 1.8] },
     buttress: { n: [6, 9], h: [6, 9.5], reach: [6, 9.5], thick: 0.5, chance: 1 },
@@ -49,7 +49,7 @@ export const SPECIES = {
     tints: ['mid', 'yellow', 'olive'], epi: 1.0, hang: 1.0,
   },
   brazilnut: {
-    crown: { base: 0.62, R: [9, 12], ry: 0.7, cut: 0.55, count: 1100, D: 0.85, di: 8, dk: 1.4, shell: 0.55, tropism: 0.08, tipR: 0.035, minR: 0.045, trunkTaper: 0.55, cards: [3, 4], size: [1.8, 2.6] },
+    crown: { base: 0.62, R: [9, 12], ry: 0.7, cut: 0.55, count: 1100, D: 0.85, di: 8, dk: 1.4, shell: 0.55, tropism: 0.08, tipR: 0.035, minR: 0.065, trunkTaper: 0.55, cards: [3, 4], size: [1.8, 2.6] },
     bark: 'barkDark', tint: 0xb0a090,
     trunk: { h: [42, 50], r: [1.1, 1.5] },
     buttress: { n: [4, 6], h: [2, 3.5], reach: [2, 3.5], thick: 0.45, chance: 0.7 },
@@ -63,7 +63,7 @@ export const SPECIES = {
     tints: ['dark', 'mid'], epi: 0.8, hang: 0.8,
   },
   canopy: {
-    crown: { base: 0.55, R: [5, 8.5], ry: 0.62, cut: 0.6, count: 600, D: 0.6, di: 6, dk: 1.0, shell: 0.5, tropism: 0.08, tipR: 0.025, minR: 0.032, trunkTaper: 0.6, cards: [2, 3], size: [1.6, 2.3] },
+    crown: { base: 0.55, R: [6, 10], ry: 0.55, cut: 0.6, count: 650, D: 0.6, di: 6, dk: 1.0, shell: 0.5, tropism: 0.08, tipR: 0.025, minR: 0.07, trunkTaper: 0.6, cards: [2, 3], size: [1.6, 2.3] },
     bark: 'barkDark', tint: 0xc0b0a0,
     trunk: { h: [22, 32], r: [0.45, 0.95] },
     buttress: { n: [4, 7], h: [2.2, 5], reach: [2, 4.5], thick: 0.45, chance: 0.7 },
@@ -77,7 +77,7 @@ export const SPECIES = {
     tints: ['dark', 'mid', 'mid', 'yellow', 'blue', 'olive', 'flush'], epi: 0.6, hang: 0.6,
   },
   midstory: {
-    crown: { base: 0.45, R: [3, 5], ry: 0.8, cut: 0.8, count: 300, D: 0.5, di: 4, dk: 0.8, shell: 0.45, tropism: 0.08, tipR: 0.02, minR: 0.026, trunkTaper: 0.6, cards: [2, 3], size: [1.2, 1.8] },
+    crown: { base: 0.45, R: [3, 5], ry: 0.8, cut: 0.8, count: 300, D: 0.5, di: 4, dk: 0.8, shell: 0.45, tropism: 0.08, tipR: 0.02, minR: 0.055, trunkTaper: 0.6, cards: [2, 3], size: [1.2, 1.8] },
     bark: 'barkDark', tint: 0xa89888,
     trunk: { h: [11, 18], r: [0.2, 0.38] },
     buttress: { n: [3, 4], h: [0.8, 1.6], reach: [0.8, 1.4], thick: 0.25, chance: 0.25 },
@@ -90,7 +90,7 @@ export const SPECIES = {
     tints: ['dark', 'mid', 'blue', 'olive'], epi: 0.5, hang: 0.4,
   },
   understory: {
-    crown: { base: 0.35, R: [1.0, 2.1], ry: 1.1, cut: 0.9, count: 90, D: 0.3, di: 2.2, dk: 0.45, shell: 0.3, tropism: 0.06, tipR: 0.012, minR: 0.014, trunkTaper: 0.7, cards: [3, 5], size: [0.3, 0.55], single: true },
+    crown: { base: 0.35, R: [1.0, 2.1], ry: 1.1, cut: 0.9, count: 90, D: 0.3, di: 2.2, dk: 0.45, shell: 0.3, tropism: 0.06, tipR: 0.012, minR: 0.03, trunkTaper: 0.7, cards: [3, 5], size: [0.3, 0.55], single: true },
     bark: 'barkDark', tint: 0x9a8a7a,
     trunk: { h: [3, 8], r: [0.05, 0.12] },
     levels: [
@@ -111,7 +111,7 @@ export const SPECIES = {
     umbrella: true, tints: ['mid'], epi: 0.1, hang: 0.1,
   },
   ipe: {
-    crown: { base: 0.55, R: [5, 7.5], ry: 0.62, cut: 0.6, count: 520, D: 0.6, di: 6, dk: 1.0, shell: 0.55, tropism: 0.1, tipR: 0.025, minR: 0.032, trunkTaper: 0.6, cards: [2, 3], size: [1.4, 1.9] },
+    crown: { base: 0.55, R: [5, 7.5], ry: 0.62, cut: 0.6, count: 520, D: 0.6, di: 6, dk: 1.0, shell: 0.55, tropism: 0.1, tipR: 0.025, minR: 0.07, trunkTaper: 0.6, cards: [2, 3], size: [1.4, 1.9] },
     bark: 'barkDark', tint: 0xb0a090,
     trunk: { h: [20, 27], r: [0.4, 0.6] },
     buttress: { n: [3, 4], h: [1, 2], reach: [1, 2], thick: 0.3, chance: 0.4 },
@@ -127,13 +127,13 @@ export const SPECIES = {
 };
 SPECIES.fig = {
   ...SPECIES.canopy, bark: 'roots', tint: 0xb8b0a0,
-  crown: { ...SPECIES.canopy.crown, R: [6, 9.5], count: 700 },
+  crown: { ...SPECIES.canopy.crown, R: [7, 10.5], count: 750 },
   trunk: { h: [24, 30], r: [0.5, 0.7] },
   blob: { ...SPECIES.canopy.blob, cells: [CELL.clusterDark], cards: [11, 16] },
   tints: ['dark'], fig: true, epi: 0.8, hang: 1.2,
 };
 
-function radialSegs(r) { return r > 0.9 ? 22 : r > 0.4 ? 16 : r > 0.15 ? 10 : r > 0.06 ? 7 : 5; }
+function radialSegs(r) { return r > 0.9 ? 20 : r > 0.4 ? 13 : r > 0.15 ? 9 : r > 0.06 ? 6 : 5; }
 
 export class Forest {
   constructor({ terrain, batch, cards, colliders, rng }) {
@@ -312,11 +312,11 @@ export class Forest {
       let end = ch.length;
       while (end > 2 && sk.r[ch[end - 1]] < C.minR) end--;
       if (sk.r[ch[1]] < C.minR) continue;
-      const use = ch.slice(0, end);
+      const use = ch.slice(0, end).filter((id, k, arr) => k === 0 || k === arr.length - 1 || sk.r[id] > 0.2 || k % 2 === 0);
       const p = use.map(V), rr = use.map((i) => sk.r[i]);
       const r0 = rr[0];
       addTube(mb, p, rr, {
-        radial: radialSegs(r0) - (r0 < 0.3 ? 2 : 0), uRepeat: Math.max(1, Math.round(Math.PI * 2 * r0 / 1.3)), vScale: 1.3, capEnd: true,
+        radial: Math.max(4, radialSegs(r0) - (r0 < 0.3 ? 3 : 2)), uRepeat: Math.max(1, Math.round(Math.PI * 2 * r0 / 1.3)), vScale: 1.3, capEnd: true,
         windFn: () => 0.15,
       });
       for (let k = 0; k < p.length - 1; k++) {
@@ -496,7 +496,7 @@ export class Forest {
         pts.push(new THREE.Vector3(x, this.terrain.height(x, z) - rr * 0.35 + lift, z));
         radii.push(rr);
       }
-      addTube(mb, pts, radii, { radial: 7, uRepeat: 1, vScale: 1.2, windFn: () => 0.8 });
+      addTube(mb, pts, radii, { radial: 7, uRepeat: 2, vScale: 1.0, windFn: () => 0.2 });
     }
   }
 
@@ -628,10 +628,10 @@ export class Forest {
     fill('emergent', 'kapok', 3, 28, 3, { samples: 30 });
     fill('emergent', 'brazilnut', 4, 24, 4, { samples: 30 });
     fill('canopy', 'fig', 4, 12, 3);
-    for (let i = 0; i < 2; i++) fill('canopy', 'fig', 1, 12, 3, { treeOpts: { hollow: true } });
+    for (let i = 0; i < 2; i++) fill('canopy', 'fig', 1, 12, 3, { treeOpts: { hollow: true, radius: rng.range(1.1, 1.5) } });
     fill('canopy', 'ipe', 3, 10, 3);
     const D = Math.max(0.6, QUALITY.density);
-    fill('canopy', 'canopy', Math.round(260 * D), 4, 2);
+    fill('canopy', 'canopy', Math.round(280 * Math.max(0.85, D)), 4, 2);
     fill('canopy', 'cecropia', 18, 3, 0.5, { pred: (x, z) => T.bankDist(x, z) < 14 });
     fill('sub', 'midstory', Math.round(300 * D), 3, 1.5);
     fill('under', 'understory', Math.round(560 * D), 2.2, 1.0);

@@ -14,7 +14,7 @@ export function createDistantForest(terrain, atlas, inner = 110) {
   const nz = createNoise(99);
   const rings = [];
   // wall + canopy rings, geometric spacing outward
-  for (let i = 0; i <= 6; i++) rings.push(inner + i * 2);
+  for (let i = 0; i <= 6; i++) rings.push(inner + i * 1.5);
   let r = rings[rings.length - 1], step = 1.6;
   while (r < 1600) { r += step; step *= 1.045; rings.push(r); }
   const seg = 720;
@@ -48,24 +48,24 @@ export function createDistantForest(terrain, atlas, inner = 110) {
       const { d1, d2, id } = crown(x, z);
       const isBig = id >= 10, cid = id % 1;
       const dome = Math.sqrt(Math.max(0, 1 - Math.pow(d1 / (isBig ? 0.9 : 0.72), 2)));
-      let h = 28 + nz.fbm2(x * 0.004, z * 0.004, 3) * 5 + dome * (isBig ? 13 : 5.5) + nz.noise2(x * 0.3, z * 0.3) * 0.9 + nz.noise2(x * 0.9, z * 0.9) * 0.35;
+      let h = 24 + nz.fbm2(x * 0.004, z * 0.004, 3) * 4 + dome * (isBig ? 14 : 5) + nz.noise2(x * 0.3, z * 0.3) * 0.9 + nz.noise2(x * 0.9, z * 0.9) * 0.35;
       const edge = smoothstep(0.0, 0.18, d2 - d1); // crevices between crowns
       h -= (1 - edge) * 2.2;
       // wall at the inner edge
-      const wallT = smoothstep(inner, inner + 12, R);
+      const wallT = smoothstep(inner, inner + 9, R);
       const ground = terrain.baseHeight(x, z) - 0.5;
       h = ground + (h - ground) * wallT;
       // river valley
       const rd = terrain.riverDist(x, z) - terrain.riverHalfWidth(x);
-      const cut = smoothstep(2, 14, rd);
-      h = -2 + (h + 2) * cut;
+      const cut = smoothstep(1, 26, rd);
+      h = -2 + (h + 2) * Math.pow(cut, 0.6);
       pos.push(x, h, z);
       // colour
       c.copy(greens[Math.floor(cid * greens.length) % greens.length]);
       if (cid > 0.965) c.copy(pink); else if (cid > 0.94) c.copy(yellow); else if (cid > 0.9) c.copy(silver);
       c.multiplyScalar(0.55 + 0.45 * edge * (0.7 + 0.3 * dome));
       if (R < inner + 12) c.multiplyScalar(0.35);
-      if (cut < 1) c.lerp(new THREE.Color(0x2a3a1a), 1 - cut);
+      if (cut < 0.15) c.lerp(new THREE.Color(0x3a4a2a), 1 - cut / 0.15);
       col.push(c.r, c.g, c.b);
     }
   }

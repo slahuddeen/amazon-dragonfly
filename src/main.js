@@ -43,6 +43,7 @@ async function init() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(FOG.lowColor.clone(), 0.016);
   const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.03, 3000);
+  camera.layers.enable(1);
 
   hud.progress(0.03, 'Painting leaves, bark and leaf litter…'); await tick();
   const tex = {
@@ -71,7 +72,7 @@ async function init() {
   forest.populate({
     hero: [
       { type: 'giant', x: heroPos.x, z: heroPos.z, opts: { height: 64, radius: 2.3, tint: 'mid' }, min: 24 },
-      { type: 'fig', x: -16, z: rz0 - 36, opts: { hollow: true }, min: 12 },
+      { type: 'fig', x: -16, z: rz0 - 36, opts: { hollow: true, radius: 1.3 }, min: 12 },
       { type: 'ipe', x: 26, z: rz0 - 30, opts: { tint: 'pink' }, min: 10 },
     ],
   });
@@ -122,11 +123,12 @@ async function init() {
   const sun = new THREE.DirectionalLight(SUN_COLOR, 3.4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(QUALITY.shadow, QUALITY.shadow);
-  const EXT = 62;
+  const EXT = 50;
   Object.assign(sun.shadow.camera, { left: -EXT, right: EXT, top: EXT, bottom: -EXT, near: 1, far: 420 });
   sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.035;
+  sun.shadow.camera.layers.enable(1);
   scene.add(sun, sun.target);
-  const hemi = new THREE.HemisphereLight(0xa8c8e8, 0x4a5a28, 0.45);
+  const hemi = new THREE.HemisphereLight(0xa8c8e8, 0x4a5a28, 0.6);
   scene.add(hemi);
   const water = createWater(terrain); scene.add(water);
   scene.add(createDistantForest(terrain, tex.atlas));
@@ -142,6 +144,10 @@ async function init() {
   const near = spawn.clone();
   const fauna = [];
   const frng = rng.fork(9);
+  const faunaGroup = new THREE.Group(); faunaGroup.name = 'fauna'; scene.add(faunaGroup);
+  const sceneMain = scene;
+  {
+  const scene = faunaGroup;
   fauna.push(new Butterflies(scene, { terrain, plants, rng: frng.fork(1), near }));
   fauna.push(new Odonates(scene, { terrain, rng: frng.fork(2), near: new THREE.Vector3(spawn.x + 6, 0, rz0 - 4) }));
   fauna.push(new Birds(scene, { forest, plants, terrain, rng: frng.fork(3), near }));
@@ -183,9 +189,15 @@ async function init() {
   midgeSpots.push(spawn.clone().add(new THREE.Vector3(3, 0.6, -2)), spawn.clone().add(new THREE.Vector3(10, 0.2, 6)));
   scene.add(createMidges(midgeSpots, frng.fork(12)));
 
+  }
+  faunaGroup.traverse((o) => o.layers.set(1));
+  const scene_ = sceneMain;
   // player
   const player = new DragonflyPlayer({ camera, terrain, colliders, dom: renderer.domElement });
   scene.add(player.model);
+  player.perchTargets = world;
+  terrain.mesh.userData.perch = true;
+  world.add(terrain.mesh);
   const toHero = heroPos.clone().sub(spawn);
   player.setPose(spawn, Math.atan2(-toHero.x, -toHero.z), 0.05);
   const H = (x, z) => Math.max(terrain.height(x, z), 0);
@@ -297,7 +309,7 @@ async function init() {
     const cov = forest.coverAt(cp.x, cp.z), top = forest.topAt(cp.x, cp.z);
     const u = cov * THREE.MathUtils.clamp((top - cp.y) / Math.max(top, 1), 0, 1);
     under += (u - under) * (1 - Math.exp(-dt * 1.5));
-    const target = THREE.MathUtils.lerp(1.0, 2.3, under);
+    const target = THREE.MathUtils.lerp(1.0, 3.3, under);
     exposure += (target - exposure) * (1 - Math.exp(-dt * 1.2));
     renderer.toneMappingExposure = exposure;
     post.grade.uniforms.uUnder.value = under;

@@ -138,7 +138,46 @@ export class DragonflyPlayer {
     this.lastYaw = 0;
     this.mouse = { dx: 0, dy: 0 };
     this.locked = false;
+    this.perched = null; // { p, n } when sitting on a surface
+    this.perchTargets = null; // Object3D whose meshes can be landed on
+    this.raycaster = new THREE.Raycaster();
     this.bind();
+  }
+  // Land on the closest surface below / ahead (leaves, twigs, bark, vines, ground).
+  tryPerch() {
+    if (!this.perchTargets) return false;
+    const rc = this.raycaster;
+    rc.near = 0; rc.far = 2.5;
+    rc.layers.enableAll();
+    const cand = [];
+    this.perchTargets.traverse((o) => {
+      if (!o.isMesh || !o.visible || o.name === 'sky') return;
+      const g = o.geometry;
+      if (!g.boundingSphere) g.computeBoundingSphere();
+      const bs = o.isInstancedMesh ? (o.boundingSphere || (o.computeBoundingSphere(), o.boundingSphere)) : g.boundingSphere;
+      const c = bs.center.clone().applyMatrix4(o.matrixWorld);
+      if (c.distanceTo(this.pos) < bs.radius + 3) cand.push(o);
+    });
+    const f = this.forward();
+    const dirs = [new THREE.Vector3(0, -1, 0), f.clone().setY(f.y - 0.6).normalize(), f.clone(), f.clone().setY(f.y - 0.25).normalize()];
+    let best = null;
+    for (const d of dirs) {
+      rc.set(this.pos, d);
+      const hits = rc.intersectObjects(cand, false);
+      if (hits.length && (!best || hits[0].distance < best.distance)) best = hits[0];
+    }
+    if (!best) return false;
+    const n = best.face ? best.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+    if (best.object.isInstancedMesh && best.instanceId !== undefined) {
+      const m = new THREE.Matrix4(); best.object.getMatrixAt(best.instanceId, m);
+      n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(m));
+    }
+    n.transformDirection(best.object.matrixWorld).normalize();
+    if (n.dot(rc.ray.direction) > 0) n.negate();
+    if (n.y < -0.2) n.set(0, 1, 0); // never hang upside-down under a leaf
+    this.perched = { p: best.point.clone().addScaledVector(n, 0.012), n };
+    this.vel.set(0, 0, 0);
+    return true;
   }
   bind() {
     addEventListener('keydown', (e) => {
@@ -146,6 +185,8 @@ export class DragonflyPlayer {
       this.keys.add(e.code);
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyQ', 'KeyE', 'KeyC'].includes(e.code) && this.touring) this.stopTour();
       if (e.code === 'KeyV') this.mode = this.mode === 'chase' ? 'fpv' : 'chase';
+      if (e.code === 'KeyF') { if (this.perched) this.perched = null; else if (!this.touring) this.tryPerch(); }
+      if (this.perched && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyQ', 'KeyE', 'KeyC'].includes(e.code)) { this.perched = null; this.vel.y = 0.6; }
       if (e.code === 'KeyT') this.touring ? this.stopTour() : this.startTour();
       if (e.code === 'Space') e.preventDefault();
     });
@@ -189,7 +230,15 @@ export class DragonflyPlayer {
     dt = Math.min(dt, 0.05);
     const k = this.keys;
     const f = this.forward();
-    if (this.touring) {
+    if (this.perched) {
+      const sens = 0.0022;
+      this.yaw -= this.mouse.dx * sens;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - this.mouse.dy * sens, -1.2, 1.2);
+      this.mouse.dx = this.mouse.dy = 0;
+      this.pos.copy(this.perched.p);
+      this.vel.set(0, 0, 0);
+      this.roll *= 0.9;
+    } else if (this.touring) {
       const speed = 4.2;
       this.tourS = (this.tourS + (speed * dt) / this.tourLen) % 1;
       const p = this.tour.getPointAt(this.tourS);
@@ -226,6 +275,7 @@ export class DragonflyPlayer {
     }
     // collisions
     const p = this.pos;
+    if (this.perched) return this.updatePerchedView(dt, time);
     const ground = Math.max(this.terrain.height(p.x, p.z), WORLD.waterLevel) + 0.07;
     if (p.y < ground) { p.y = ground; if (this.vel.y < 0) this.vel.y = 0; }
     if (!this.touring) {
@@ -259,5 +309,25 @@ export class DragonflyPlayer {
       this.model.visible = false;
     }
   }
-  speed() { return this.vel.length(); }
+  updatePerchedView(dt, time) {
+    const { p, n } = this.perched;
+    // body sits on the surface, aligned to its normal, heading where the player looks
+    const f = this.forward().clone();
+    const fwd = f.addScaledVector(n, -f.dot(n)).normalize();
+    if (fwd.lengthSq() < 1e-4) fwd.set(1, 0, 0);
+    const right = new THREE.Vector3().crossVectors(n, fwd).normalize();
+    const m = new THREE.Matrix4().makeBasis(right, n, fwd);
+    this.model.position.copy(p);
+    this.model.quaternion.setFromRotationMatrix(m);
+    for (const w of this.model.userData.wings) w.pivot.rotation.z = w.side * (0.05 + Math.sin(time * 1.3) * 0.02); // wings held flat
+    const cam = this.camera;
+    const cf = this.forward();
+    const desired = p.clone().addScaledVector(cf, -0.28).addScaledVector(n, 0.07);
+    this.camPos.lerp(desired, 1 - Math.exp(-dt * 6));
+    this.colliders.resolve(this.camPos, 0.04);
+    cam.position.copy(this.camPos);
+    cam.quaternion.setFromEuler(new THREE.Euler(this.pitch - 0.15, this.yaw, 0, 'YXZ'));
+    this.model.visible = true;
+  }
+  speed() { return this.perched ? 0 : this.vel.length(); }
 }

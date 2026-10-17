@@ -10,9 +10,9 @@ const v3 = (v) => (v.isColor ? `vec3(${f(v.r)}, ${f(v.g)}, ${f(v.b)})` : `vec3($
 
 export const FOG = {
   falloff: 0.055,
-  haze: 0.00055,
+  haze: 0.00032,
   lowColor: new THREE.Color(0.05, 0.085, 0.06),
-  highColor: new THREE.Color(0.5, 0.63, 0.8),
+  highColor: new THREE.Color(0.4, 0.54, 0.72),
   sunColor: new THREE.Color(1.0, 0.82, 0.58),
 };
 
@@ -77,7 +77,7 @@ uniform vec4 uWorldRect;
   float cover = mix(0.85, cm.r, inside);
   float top = mix(38.0, cm.g * 64.0, inside);
   float under = clamp((top - wpAO.y) / max(top, 1.0), 0.0, 1.0);
-  float occ = 1.0 - cover * mix(0.3, 0.86, under);
+  float occ = 1.0 - cover * mix(0.28, 0.7, under);
   vec3 tintAO = mix(vec3(1.0), vec3(0.72, 1.0, 0.66), cover * under);
   reflectedLight.indirectDiffuse *= occ * tintAO;
   reflectedLight.indirectSpecular *= occ * occ;

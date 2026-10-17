@@ -28,7 +28,7 @@ export class Vines {
   catenary(a, b, r, rng) {
     const span = a.distanceTo(b);
     const sag = span * rng.range(0.12, 0.45);
-    const n = Math.max(6, Math.ceil(span / 0.6));
+    const n = Math.max(6, Math.ceil(span / 0.9));
     const pts = [], radii = [];
     const twist = rng.range(0, 6.28);
     for (let i = 0; i <= n; i++) {
@@ -40,7 +40,7 @@ export class Vines {
     }
     const mb = this.batch.get('vine', a.x, a.z);
     mb.setColor(new THREE.Color(0x8a7a5a).multiplyScalar(rng.range(0.8, 1.1)));
-    addTube(mb, pts, radii, { radial: 5, vScale: 0.6, windFn: (i) => 0.05 + 0.25 * 4 * (i / n) * (1 - i / n) * Math.min(1, span / 10) });
+    addTube(mb, pts, radii, { radial: 4, vScale: 0.6, windFn: (i) => 0.05 + 0.25 * 4 * (i / n) * (1 - i / n) * Math.min(1, span / 10) });
     for (let i = 2; i < n - 1; i += rng.int(2, 5)) {
       if (rng.chance(0.4)) this.leaf(pts[i], new THREE.Vector3(rng.range(-1, 1), 0, rng.range(-1, 1)).normalize(), rng.range(0.15, 0.3));
     }
@@ -53,7 +53,7 @@ export class Vines {
     const gy = this.terrain.height(gx, gz);
     const bottom = new THREE.Vector3(gx, gy - 0.2, gz);
     const h = top.y - gy;
-    const n = Math.ceil(h / 0.7);
+    const n = Math.ceil(h / 1.0);
     const mid = [];
     const loopAt = rng.chance(0.4) ? rng.range(0.3, 0.8) : -1;
     for (let i = 0; i <= n; i++) {
@@ -80,7 +80,7 @@ export class Vines {
         return p.clone().add(new THREE.Vector3(Math.cos(a) * r * 1.1, 0, Math.sin(a) * r * 1.1));
       });
       addTube(mb, pts, pts.map((_, i) => r * (strands === 2 ? 0.7 : 1) * (0.8 + 0.4 * (i / n))), {
-        radial: 6, vScale: 0.6, windFn: (i) => 0.12 * Math.sin(Math.PI * Math.min(1, i / n * 1.2)) * (1 - Math.pow(i / n, 4)),
+        radial: 4, vScale: 0.6, windFn: (i) => 0.12 * Math.sin(Math.PI * Math.min(1, i / n * 1.2)) * (1 - Math.pow(i / n, 4)),
       });
     }
     for (let i = 0; i < mid.length - 1; i += 2) this.colliders.addCapsule(mid[i], mid[Math.min(mid.length - 1, i + 2)], r + 0.02);
@@ -128,7 +128,7 @@ export class Vines {
       const reach = rng.chance(0.5) ? 1 : rng.range(0.3, 0.95);
       const endY = reach === 1 ? gy - 0.1 : start.y - (start.y - gy) * reach;
       const len = start.y - endY;
-      const n = Math.max(3, Math.ceil(len / 1.5));
+      const n = Math.max(2, Math.ceil(len / 2.5));
       const pts = [];
       for (let i = 0; i <= n; i++) {
         const t = i / n;
@@ -149,7 +149,7 @@ export class Vines {
     const a0 = rng.range(0, 6.28);
     const path = [];
     const rAt = (y) => { for (let i = 0; i < pts.length - 1; i++) if (pts[i + 1].y >= y) { const f = (y - pts[i].y) / Math.max(1e-4, pts[i + 1].y - pts[i].y); return [THREE.MathUtils.lerp(radii[i], radii[i + 1], f), THREE.MathUtils.lerp(pts[i].x, pts[i + 1].x, f), THREE.MathUtils.lerp(pts[i].z, pts[i + 1].z, f)]; } return [radii[radii.length - 1], pts[pts.length - 1].x, pts[pts.length - 1].z]; };
-    const n = Math.ceil(maxH / 0.25);
+    const n = Math.ceil(maxH / 0.35);
     const kind = rng.next();
     const shingle = tree.radius < 0.25 && kind < 0.35;
     for (let i = 0; i <= n; i++) {
@@ -199,7 +199,7 @@ export class Vines {
     for (let k = 0; k < strands; k++) {
       const top = h.p.clone().addScaledVector(along, (k - strands / 2) * rng.range(0.15, 0.3));
       const len = (top.y - gy) * rng.range(0.25, 0.95);
-      const n = Math.max(3, Math.ceil(len / 0.5));
+      const n = Math.max(3, Math.ceil(len / 0.8));
       const pts = [];
       for (let i = 0; i <= n; i++) pts.push(top.clone().add(new THREE.Vector3(Math.sin(i * 0.7 + k) * 0.04, -len * i / n, Math.cos(i * 0.5 + k) * 0.04)));
       addTube(mb, pts, pts.map(() => 0.006), { radial: 3, windFn: (i) => 0.25 * i / n });
@@ -356,7 +356,7 @@ export class Vines {
     const mb = this.batch.get('vine', host.x, host.z);
     mb.setColor(new THREE.Color(0x7a6a4a).multiplyScalar(rng.range(0.8, 1.1)));
     const n = path.length;
-    addTube(mb, path, path.map((_, i) => vr * (1 - 0.6 * i / n)), { radial: 5, vScale: 0.6, windFn: (i) => (i < climbEnd ? 0 : 0.03) });
+    addTube(mb, path, path.map((_, i) => vr * (1 - 0.6 * i / n)), { radial: 4, vScale: 0.6, windFn: (i) => (i < climbEnd ? 0 : 0.03) });
     for (let i = 0; i < climbEnd - 1; i += 2) this.colliders.addCapsule(path[i], path[Math.min(climbEnd - 1, i + 2)], vr + 0.02);
     this.trails.push({ pts: path, host, climbEnd });
     this.count.feasting++;

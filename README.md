@@ -10,7 +10,8 @@ npm run dev        # http://localhost:5173
 npm run build      # static build in dist/
 ```
 
-Quality presets: `?q=low`, `?q=medium`, `?q=high` (default).
+Quality presets: `?q=low`, `?q=medium`, `?q=high` (default). The world is dense (hundreds of thousands of leaf cards,
+millions of triangles); use `?q=medium` or `?q=low` on laptops/integrated GPUs.
 
 ## Controls
 
@@ -21,6 +22,7 @@ Quality presets: `?q=low`, `?q=medium`, `?q=high` (default).
 | Space / E | rise · Q / C sink |
 | Shift | dart (dragonfly burst speed) |
 | Mouse wheel | cruise speed |
+| F | perch on the nearest leaf, twig, vine or bark (any move key takes off) |
 | V | chase camera / first person |
 | T | cinematic tour (autopilot) |
 | M | mute · H help |
