@@ -25,9 +25,9 @@ export class Vines {
   }
 
   // sagging liana between two points
-  catenary(a, b, r, rng) {
+  catenary(a, b, r, rng, sagMul = 1) {
     const span = a.distanceTo(b);
-    const sag = span * rng.range(0.12, 0.45);
+    const sag = span * rng.range(0.12, 0.45) * sagMul;
     const n = Math.max(6, Math.ceil(span / 0.9));
     const pts = [], radii = [];
     const twist = rng.range(0, 6.28);
@@ -399,6 +399,20 @@ export class Vines {
       made++;
     }
     this.count.lianas = made;
+    // deep liana loops hanging beneath the emergent crowns
+    let loops = 0;
+    for (const t of F.trees) {
+      if (!['giant', 'kapok', 'brazilnut', 'fig'].includes(t.type)) continue;
+      const hs = F.hangs.filter((h) => h.tree === t);
+      for (let k = 0; k < Math.min(14, hs.length); k++) {
+        const a = rng.pick(hs), b = rng.pick(hs);
+        const d = a.p.distanceTo(b.p);
+        if (d < 2.5 || d > 14) continue;
+        this.catenary(a.p.clone(), b.p.clone(), rng.range(0.03, 0.07), rng, rng.range(1.8, 4));
+        loops++;
+      }
+    }
+    this.count.loops = loops;
     // hanging woody lianas + monkey ladders
     const big = F.hangs.filter((h) => h.p.y > 12);
     for (let i = 0; i < 200 && big.length; i++) this.dropLiana(rng.pick(big).p.clone(), rng);

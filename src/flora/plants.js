@@ -526,6 +526,7 @@ export class Plants {
         if (x * x + z * z > R * R) continue;
         const bd = T.bankDist(x, z), cov = F.coverAt(x, z);
         if (!pred(x, z, bd, cov)) continue;
+        if (T.slopeY(x, z) < (opts.minSlope ?? 0.62) || T.inCave(x, z)) continue;
         const y = T.height(x, z);
         if (!free(x, z, y, opts.clear ?? 0.4)) continue;
         const s = rng.range(...(opts.scale || [0.8, 1.2]));

@@ -556,6 +556,29 @@ export function buildBark(kind, seed = 3) {
   return { map, normalMap };
 }
 
+// ---------------------------------------------------------------- sandstone rock
+export function buildRock(seed = 13) {
+  const W = 512, H = 512;
+  const nz = createNoise(seed);
+  const h = new Float32Array(W * H), rgb = new Uint8Array(W * H * 3);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const u = x / W, v = y / H, i = y * W + x;
+    const warp = nz.pfbm2(u * 3, v * 3, 3, 3, 3) * 0.08;
+    const band = Math.sin((v + warp) * Math.PI * 2 * 7) * 0.5 + 0.5;           // bedding layers
+    const grit = nz.pfbm2(u * 24, v * 24, 24, 24, 3) * 0.5 + 0.5;
+    const crack = Math.pow(1 - Math.abs(nz.pfbm2(u * 6 + 2, v * 4, 6, 4, 3)), 14);  // joints
+    const hh = band * 0.35 + grit * 0.5 - crack * 0.6;
+    h[i] = hh;
+    const tone = 0.55 + 0.45 * band;
+    let r = (120 + 60 * grit) * tone, g = (98 + 46 * grit) * tone, b = (78 + 36 * grit) * tone;
+    r *= 1 - crack * 0.7; g *= 1 - crack * 0.7; b *= 1 - crack * 0.7;
+    const algae = Math.max(0, nz.pfbm2(u * 5 + 7, v * 5, 5, 5, 4) - 0.1) * 1.6;
+    r = r * (1 - algae * 0.5); g = g * (1 - algae * 0.25); b = b * (1 - algae * 0.55);
+    rgb[i * 3] = Math.min(255, r); rgb[i * 3 + 1] = Math.min(255, g); rgb[i * 3 + 2] = Math.min(255, b);
+  }
+  return { map: rgbTexture(rgb, W, H), normalMap: heightToNormalTexture(h, W, H, 4) };
+}
+
 // ---------------------------------------------------------------- forest floor leaf litter
 export function buildLitter(seed = 11) {
   const N = 1024;

@@ -9,6 +9,7 @@ import { createNoise } from '../core/noise.js';
 import { lerp, smoothstep } from '../core/rng.js';
 import { WORLD, QUALITY } from '../core/shared.js';
 import { colonize, chains } from './growth.js';
+import { ARCHITECTURES, ARCH_SPECIES } from './architectures.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _r = new THREE.Vector3(), _u = new THREE.Vector3(), _X = new THREE.Vector3(), _Y = new THREE.Vector3(), _Z = new THREE.Vector3();
@@ -133,6 +134,8 @@ SPECIES.fig = {
   tints: ['dark'], fig: true, epi: 0.8, hang: 1.2,
 };
 
+Object.assign(SPECIES, ARCH_SPECIES);
+
 function radialSegs(r) { return r > 0.9 ? 20 : r > 0.4 ? 13 : r > 0.15 ? 9 : r > 0.06 ? 6 : 5; }
 
 export class Forest {
@@ -153,8 +156,8 @@ export class Forest {
     const sp = SPECIES[type];
     const rng = this.rng.fork(this.trees.length * 7919 + 13);
     const gy = this.terrain.height(x, z);
-    const h = opts.height ?? rng.range(...sp.trunk.h);
-    const r = opts.radius ?? rng.range(...sp.trunk.r);
+    const h = opts.height ?? rng.range(...(sp.arch ? sp.h : sp.trunk.h));
+    const r = opts.radius ?? rng.range(...(sp.arch ? sp.r : sp.trunk.r));
     const tintName = opts.tint ?? rng.pick(sp.tints);
     const tree = {
       type, sp, x, z, gy, height: h, radius: r, rng, trunk: null, hollow: !!opts.hollow,
@@ -163,6 +166,8 @@ export class Forest {
       crownTop: gy + h, blobs: 0,
     };
     this.trees.push(tree);
+    if (sp.arch) { ARCHITECTURES[sp.arch](this, tree, rng, sp); return tree; }
+    tree.old = (type === 'canopy' || type === 'brazilnut' || type === 'giant') && rng.chance(0.18);
     const base = new THREE.Vector3(x, gy - 0.6, z);
     const dir = new THREE.Vector3(rng.range(-0.04, 0.04), 1, rng.range(-0.04, 0.04)).normalize();
     if (type === 'understory') dir.set(rng.range(-0.2, 0.2), 1, rng.range(-0.2, 0.2)).normalize();
@@ -324,7 +329,7 @@ export class Forest {
         if (rr[k] > 0.12) {
           _n.subVectors(p[k + 1], p[k]).normalize();
           if (Math.abs(_n.y) < 0.75) {
-            if (rng.chance(0.35 * sp.epi)) this.attach.push({ p: p[k].clone().add(new THREE.Vector3(0, rr[k] * 0.85, 0)), n: UP.clone(), r: rr[k], tree, kind: 'limb', dir: _n.clone() });
+            if (rng.chance(0.35 * sp.epi * (tree.old ? 1.8 : 1))) this.attach.push({ p: p[k].clone().add(new THREE.Vector3(0, rr[k] * 0.85, 0)), n: UP.clone(), r: rr[k], tree, kind: 'limb', dir: _n.clone() });
             if (rng.chance(0.3 * sp.hang)) this.hangs.push({ p: p[k].clone().add(new THREE.Vector3(0, -rr[k] * 0.9, 0)), tree, r: rr[k] });
             if (rr[k] < 0.35 && rng.chance(0.12)) this.perches.push({ p: p[k].clone().add(new THREE.Vector3(0, rr[k], 0)), dir: _n.clone(), tree });
           }
@@ -335,8 +340,16 @@ export class Forest {
     const tint = tree.leafTint, col = new THREE.Color();
     const cells = sp.blob.cells;
     tree.leafNodes = [];
+    const deadA = rng.range(0, 6.28), deadW = tree.old ? rng.range(0.5, 1.1) : -1;
     for (let i = 1; i < sk.N; i++) {
       const tip = childList[i].length === 0;
+      if (deadW > 0) {
+        let da = Math.atan2(sk.z[i] - center.z, sk.x[i] - center.x) - deadA;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        if (Math.abs(da) < deadW) continue; // a dead, bare limb (old trees)
+      }
+      // shade leaves deeper in the crown are larger and darker (specific leaf area rises with depth)
+      const depthF = THREE.MathUtils.clamp((center.y + Ry - sk.y[i]) / (2 * Ry), 0, 1);
       if (!tip && !(sk.r[i] < C.tipR * 1.5 && rng.chance(0.25))) continue;
       tree.leafNodes.push(i);
       const p = V(i), par = V(sk.par[i]);
@@ -350,9 +363,9 @@ export class Forest {
         ydir.y += C.single ? -0.1 : 0.15;
         const face = UP.clone().addScaledVector(out, 0.5).add(_r);
         cardBasis(ydir, face, _X, _Y, _Z);
-        const sz = rng.range(...C.size);
+        const sz = rng.range(...C.size) * (1 + 0.45 * depthF);
         const w = sz * (C.single ? rng.range(0.5, 0.7) : 1);
-        const v = rng.range(0.82, 1.12);
+        const v = rng.range(0.82, 1.12) * (1 - 0.22 * depthF);
         const tt = flush ? LEAF_TINTS.flush : [tint.r, tint.g, tint.b];
         col.setRGB(tt[0] * v * rng.range(0.94, 1.06), tt[1] * v, tt[2] * v * rng.range(0.94, 1.06));
         const nrm = out.clone().multiplyScalar(0.65).addScaledVector(UP, 0.45).addScaledVector(_Z, 0.2).normalize();
@@ -557,44 +570,56 @@ export class Forest {
     const T = this.terrain, rng = this.rng;
     const placed = [];
     const R = WORLD.radius - 2;
+    // spatial grid of placed stems (thousands of trees)
+    const G = 6, grid = new Map();
+    const gkey = (i, j) => i * 10007 + j;
+    const addPlaced = (p) => {
+      placed.push(p);
+      const k = gkey(Math.floor(p.x / G), Math.floor(p.z / G));
+      let a = grid.get(k); if (!a) { a = []; grid.set(k, a); } a.push(p);
+    };
     const ok = (x, z, minD, waterGap, cls) => {
       if (Math.hypot(x, z) > R) return false;
       if (T.bankDist(x, z) < waterGap) return false;
-      for (const p of placed) {
-        const dd = (p.x - x) ** 2 + (p.z - z) ** 2;
-        const need = Math.max(minD, p.min) * (cls === 'small' || p.cls === 'small' ? 0.5 : 1);
-        if (dd < need * need) return false;
+      const sl = T.slopeY(x, z);
+      if (sl < (cls === 'small' ? 0.6 : 0.8) || T.inCave(x, z)) return false;
+      const gi = Math.floor(x / G), gj = Math.floor(z / G);
+      for (let di = -6; di <= 6; di++) for (let dj = -6; dj <= 6; dj++) {
+        const a = grid.get(gkey(gi + di, gj + dj)); if (!a) continue;
+        for (const p of a) {
+          const need = Math.max(minD, p.min) * (cls === 'small' || p.cls === 'small' ? 0.5 : 1);
+          if ((p.x - x) ** 2 + (p.z - z) ** 2 < need * need) return false;
+        }
       }
       return true;
     };
-    // Light-competition rasters, one per forest layer. A new tree goes where its layer is
-    // most open, so each layer closes into a continuous ceiling over the one below.
+    // Light-competition rasters, one per stratum. A new tree goes where its stratum is most open
+    // (and, more weakly, where the strata above leave light), so every level closes into a ceiling.
     const N = 128, S = WORLD.size;
-    const layers = { emergent: new Float32Array(N * N), canopy: new Float32Array(N * N), sub: new Float32Array(N * N), under: new Float32Array(N * N) };
+    const L = () => new Float32Array(N * N);
+    const layers = { emergent: L(), canopy: L(), sub: L(), under: L(), treelet: L() };
     const cell = (v) => Math.max(0, Math.min(N - 1, Math.floor(((v + WORLD.half) / S) * N)));
-    const splat = (L, x, z, r, w = 1) => {
-      const rc = (r / S) * N, cx = ((x + WORLD.half) / S) * N, cz = ((z + WORLD.half) / S) * N;
+    const splat = (Lr, x, z, r, w = 1) => {
+      const rc = Math.max(0.6, (r / S) * N), cx = ((x + WORLD.half) / S) * N, cz = ((z + WORLD.half) / S) * N;
       for (let j = Math.max(0, Math.floor(cz - rc)); j <= Math.min(N - 1, Math.ceil(cz + rc)); j++)
         for (let i = Math.max(0, Math.floor(cx - rc)); i <= Math.min(N - 1, Math.ceil(cx + rc)); i++) {
           const d = Math.hypot(i + 0.5 - cx, j + 0.5 - cz) / rc;
-          if (d < 1) L[j * N + i] += w * (1 - d * d * 0.6);
+          if (d < 1) Lr[j * N + i] += w * (1 - d * d * 0.6);
         }
     };
-    const shade = (L, x, z, r) => {
+    const shade = (Lr, x, z, r) => {
       let s2 = 0;
       for (let k = 0; k < 9; k++) {
         const a = (k / 8) * Math.PI * 2, rr = k === 8 ? 0 : r * 0.7;
-        s2 += L[cell(z + Math.sin(a) * rr) * N + cell(x + Math.cos(a) * rr)];
+        s2 += Lr[cell(z + Math.sin(a) * rr) * N + cell(x + Math.cos(a) * rr)];
       }
       return s2 / 9;
     };
-    // upper layers shade lower ones a little too (trees still prefer light gaps)
-    const above = { canopy: ['emergent'], sub: ['emergent', 'canopy'], under: ['canopy', 'sub'] };
+    const above = { canopy: ['emergent'], sub: ['emergent', 'canopy'], under: ['canopy', 'sub'], treelet: ['sub', 'under'] };
     const plantIn = (layer, type, opts, x, z, minD) => {
-      const sp = SPECIES[type];
       const tree = this.plant(type, x, z, opts);
-      placed.push({ x, z, min: minD, cls: layer === 'under' ? 'small' : 'big' });
-      const cr = tree.crownR ?? (sp.blob ? 4 : 2.5);
+      addPlaced({ x, z, min: minD, cls: layer === 'under' || layer === 'treelet' ? 'small' : 'big' });
+      const cr = tree.crownR ?? 2.5;
       splat(layers[layer], tree.crownC ? tree.crownC.x : x, tree.crownC ? tree.crownC.z : z, cr);
       return tree;
     };
@@ -602,19 +627,19 @@ export class Forest {
       const sp = SPECIES[type];
       let made = 0;
       for (let i = 0; i < count; i++) {
-        const cr = sp.crown ? rng.range(...sp.crown.R) : 3;
+        const cr = sp.crown ? rng.range(...sp.crown.R) : (sp.spread ?? sp.leaf?.[1] ?? 2) * 0.8;
         let best = null, bestS = Infinity;
-        for (let k = 0; k < (opts.samples ?? 14); k++) {
+        for (let k = 0; k < (opts.samples ?? 12); k++) {
           const x = rng.range(-R, R), z = rng.range(-R, R);
           if (opts.pred && !opts.pred(x, z)) continue;
-          if (!ok(x, z, minD, waterGap, layer === 'under' ? 'small' : 'big')) continue;
+          if (!ok(x, z, minD, waterGap, layer === 'under' || layer === 'treelet' ? 'small' : 'big')) continue;
           let sc = shade(layers[layer], x, z, cr);
-          for (const a of above[layer] || []) sc += 0.25 * shade(layers[a], x, z, cr);
+          for (const a of above[layer] || []) sc += (opts.lightSeeking ?? 0.25) * shade(layers[a], x, z, cr);
           sc += rng.next() * 0.05;
           if (sc < bestS) { bestS = sc; best = [x, z]; }
         }
         if (!best) continue;
-        plantIn(layer, type, { ...(opts.treeOpts || {}), crownR: cr }, best[0], best[1], minD);
+        plantIn(layer, type, { ...(opts.treeOpts || {}), crownR: sp.crown ? cr : undefined }, best[0], best[1], minD);
         made++;
       }
       return made;
@@ -624,19 +649,94 @@ export class Forest {
       const layer = h.type === 'giant' || h.type === 'kapok' ? 'emergent' : 'canopy';
       plantIn(layer, h.type, h.opts || {}, h.x, h.z, h.min ?? 18);
     }
+    const D = Math.max(0.6, QUALITY.density);
+    // emergents and the canopy ceiling
     fill('emergent', 'giant', 5, 34, 4, { samples: 30 });
     fill('emergent', 'kapok', 3, 28, 3, { samples: 30 });
     fill('emergent', 'brazilnut', 4, 24, 4, { samples: 30 });
     fill('canopy', 'fig', 4, 12, 3);
     for (let i = 0; i < 2; i++) fill('canopy', 'fig', 1, 12, 3, { treeOpts: { hollow: true, radius: rng.range(1.1, 1.5) } });
     fill('canopy', 'ipe', 3, 10, 3);
-    const D = Math.max(0.6, QUALITY.density);
-    fill('canopy', 'canopy', Math.round(280 * Math.max(0.85, D)), 4, 2);
+    fill('canopy', 'canopy', Math.round(300 * Math.max(0.85, D)), 4, 2);
     fill('canopy', 'cecropia', 18, 3, 0.5, { pred: (x, z) => T.bankDist(x, z) < 14 });
-    fill('sub', 'midstory', Math.round(300 * D), 3, 1.5);
-    fill('under', 'understory', Math.round(560 * D), 2.2, 1.0);
+    // sub-canopy: domed midstory trees, tiered Terminalia, and poles of future emergents
+    fill('sub', 'midstory', Math.round(260 * D), 3, 1.5);
+    fill('sub', 'terminalia', Math.round(90 * D), 3, 1.5);
+    fill('sub', 'pole', Math.round(110 * D), 2.5, 1.5, { lightSeeking: 0.6 });
+    // understory: shade trees spreading single wide layers, small domed trees
+    fill('under', 'shadeTree', Math.round(480 * D), 1.8, 1.0, { lightSeeking: 0.1 });
+    fill('under', 'understory', Math.round(320 * D), 2.0, 1.0);
+    // treelets & saplings: big-leaved shade specialists and the next generation waiting for a gap
+    fill('treelet', 'bigLeaf', Math.round(520 * D), 1.2, 0.8, { lightSeeking: 0.0, samples: 6 });
+    fill('treelet', 'forkTree', Math.round(300 * D), 1.4, 0.8, { samples: 6 });
+    fill('treelet', 'sapling', Math.round(560 * D), 1.0, 0.8, { lightSeeking: 0.8, samples: 6 });
     this.layers = layers;
     this.placed = placed;
+  }
+
+  // Clusia-style hemiepiphytes: a shrubby tree that germinated in a host's crotch and sends
+  // aerial roots down to the soil — riding the host up to the light.
+  hitchhikers(count) {
+    const rng = this.rng;
+    const spots = this.attach.filter((a) => (a.kind === 'crotch' || (a.kind === 'limb' && a.r > 0.25)) && a.p.y > 12 && a.tree && a.tree.skel);
+    this.trails = this.trails || [];
+    let made = 0;
+    for (let k = 0; k < count && spots.length; k++) {
+      const a = spots.splice(rng.int(0, spots.length - 1), 1)[0];
+      const host = a.tree;
+      const root = a.p.clone();
+      const R = rng.range(1.8, 3.2);
+      const center = root.clone().add(new THREE.Vector3(rng.range(-0.5, 0.5), R * 0.9, rng.range(-0.5, 0.5)));
+      const sk = colonize({
+        root, rootR: rng.range(0.07, 0.12), center, R, Ry: R * 0.7, yMin: root.y + 0.3, count: 140,
+        D: 0.4, di: 2.5, dk: 0.6, shell: 0.4, tropism: 0.15, tipR: 0.012, rng,
+      });
+      const { list, childList } = chains(sk);
+      const mb = this.batch.get('roots', host.x, host.z);
+      mb.setColor(new THREE.Color(0xb0a890));
+      for (const ch of list) {
+        let end = ch.length; while (end > 2 && sk.r[ch[end - 1]] < 0.02) end--;
+        if (sk.r[ch[1]] < 0.02) continue;
+        const use = ch.slice(0, end);
+        addTube(mb, use.map((i) => new THREE.Vector3(sk.x[i], sk.y[i], sk.z[i])), use.map((i) => sk.r[i]), { radial: 4, capEnd: true, windFn: () => 0.1 });
+      }
+      const tint = new THREE.Color(0.8, 0.95, 0.78);
+      for (let i = 1; i < sk.N; i++) {
+        if (childList[i].length) continue;
+        const p = new THREE.Vector3(sk.x[i], sk.y[i], sk.z[i]);
+        const out = p.clone().sub(center).normalize();
+        for (let j = 0; j < 3; j++) {
+          _r.set(rng.gauss(), rng.gauss(), rng.gauss()).multiplyScalar(0.4);
+          cardBasis(out.clone().add(_r).setY(0.2), UP.clone().addScaledVector(out, 0.4), _X, _Y, _Z);
+          const sz = rng.range(0.3, 0.5);
+          const v = rng.range(0.85, 1.1);
+          this.cards.add('mid', p, _X, _Y, _Z, sz * 0.7, sz, cellRect(CELL.broad), tint.clone().multiplyScalar(v), { bend: -sz * 0.1, fold: 0, wind: 0.02 }, out.clone().add(UP).normalize());
+        }
+        this.crowns.push({ x: p.x, z: p.z, r: 0.5, top: p.y + 0.3 });
+      }
+      // aerial roots: some reach the soil and thicken, others still dangle
+      const gyAt = (x, z) => this.terrain.height(x, z);
+      for (let j = 0; j < rng.int(3, 8); j++) {
+        const start = root.clone().add(new THREE.Vector3(rng.range(-0.3, 0.3), -0.1, rng.range(-0.3, 0.3)));
+        const reach = rng.chance(0.6);
+        const gx = start.x + rng.range(-1.5, 1.5), gz = start.z + rng.range(-1.5, 1.5);
+        const endY = reach ? gyAt(gx, gz) - 0.2 : start.y - rng.range(2, (start.y - host.gy) * 0.8);
+        const n = Math.max(4, Math.ceil((start.y - endY) / 1.2));
+        const pts = [];
+        for (let i = 0; i <= n; i++) {
+          const t = i / n;
+          pts.push(new THREE.Vector3(start.x + (gx - start.x) * t * t + Math.sin(t * 7 + j) * 0.06, start.y + (endY - start.y) * t, start.z + (gz - start.z) * t * t + Math.cos(t * 5 + j) * 0.06));
+        }
+        const r0 = reach ? rng.range(0.025, 0.05) : rng.range(0.01, 0.02);
+        addTube(mb, pts, pts.map((_, i) => r0 * (0.7 + 0.6 * i / n)), { radial: 4, capEnd: true, windFn: (i) => (reach ? 0.05 : 0.15 * i / n) });
+        if (reach) {
+          for (let i = 0; i < n; i += 2) this.colliders.addCapsule(pts[i], pts[Math.min(n, i + 2)], r0 + 0.02);
+          this.trails.push({ pts: pts.slice().reverse(), host, climbEnd: pts.length });
+        }
+      }
+      made++;
+    }
+    this.hitchCount = made;
   }
 
   // canopy coverage map: R = cover 0..1, G = canopy top / 64

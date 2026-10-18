@@ -42,7 +42,7 @@ function ringMaterial(atlas, key, R, uvCode, extraBegin = '') {
       vec2 huv = (p - uWorldRect.xy) / uWorldRect.zw;
       vec4 hm = texture2D(uHeightMap, huv);
       float dist = length(p - uCamXZ);
-      float fade = smoothstep(uRingR * 0.5, uRingR * 0.36, dist) * smoothstep(-0.05, 0.5, hm.b) * step(length(p), ${(WORLD.radius + 2).toFixed(1)});
+      float fade = smoothstep(uRingR * 0.5, uRingR * 0.36, dist) * smoothstep(-0.05, 0.5, hm.b) * smoothstep(0.55, 0.8, hm.a) * step(length(p), ${(WORLD.radius + 2).toFixed(1)});
       float sc = mix(0.6, 1.4, h2) * fade * aOff.z;
       float ang = h1 * 6.2831;
       float ca = cos(ang), sa = sin(ang);
@@ -143,7 +143,10 @@ export class Ground {
       vMapUv = vec2(${(u0 - 0.002).toFixed(4)}, ${(v0 - 0.002).toFixed(4)}) + so + 0.004 + uv * (0.125 - 0.008);`);
     const [fu0, fv0, fdu, fdv] = cellRect(CELL.fern);
     const sprigMat = ringMaterial(atlas, 'ring-sprig', 18, `vMapUv = vMapUv;`, '');
-    const litter = ringMesh(litterGeometry(), litterMat, Math.round(22000 * D), 26, [0.8, 1.5], this.rng);
+    const litter = ringMesh(litterGeometry(), litterMat, Math.round(30000 * D), 26, [0.8, 1.5], this.rng);
+    // big fallen leaves (cecropia, palms, shade leaves) blanket the floor between the litter
+    const bigLitter = ringMesh(litterGeometry(), litterMat, Math.round(3500 * D), 26, [3, 5.5], this.rng);
+    bigLitter.name = 'bigLitterRing'; bigLitter.layers.set(1); group.add(bigLitter);
     const sprigs = ringMesh(sprigGeometry(), sprigMat, Math.round(6500 * D), 18, [0.6, 1.6], this.rng);
     for (const m of [litterMat, sprigMat]) { m.userData.ring.uHeightMap.value = heightTex; this.rings.push(m.userData.ring); }
     litter.name = 'litterRing'; sprigs.name = 'sprigRing';
@@ -163,7 +166,7 @@ export class Ground {
     this.logList = [];
     for (let tries = 0; tries < 1500 && made < 26; tries++) {
       const x = rng.range(-R, R), z = rng.range(-R, R);
-      if (Math.hypot(x, z) > R || T.bankDist(x, z) < 3) continue;
+      if (Math.hypot(x, z) > R || T.bankDist(x, z) < 3 || T.slopeY(x, z) < 0.85 || T.inCave(x, z)) continue;
       const a = rng.range(0, 6.28);
       const big = made < 10;
       const len = big ? rng.range(9, 22) : rng.range(2.5, 8), r = big ? rng.range(0.35, 0.8) : rng.range(0.14, 0.35);

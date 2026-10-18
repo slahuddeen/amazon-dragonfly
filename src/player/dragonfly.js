@@ -276,7 +276,7 @@ export class DragonflyPlayer {
     // collisions
     const p = this.pos;
     if (this.perched) return this.updatePerchedView(dt, time);
-    const ground = Math.max(this.terrain.height(p.x, p.z), WORLD.waterLevel) + 0.07;
+    const ground = Math.max(this.terrain.height(p.x, p.z), this.terrain.waterAt(p.x, p.z)) + 0.07;
     if (p.y < ground) { p.y = ground; if (this.vel.y < 0) this.vel.y = 0; }
     if (!this.touring) {
       this.colliders.resolve(p, 0.06);
@@ -296,7 +296,7 @@ export class DragonflyPlayer {
       const camUp = new THREE.Vector3(0, 1, 0);
       const desired = p.clone().addScaledVector(f, -0.36).addScaledVector(camUp, 0.085);
       this.camPos.lerp(desired, 1 - Math.exp(-dt * 10));
-      const cg = Math.max(this.terrain.height(this.camPos.x, this.camPos.z), WORLD.waterLevel) + 0.04;
+      const cg = Math.max(this.terrain.height(this.camPos.x, this.camPos.z), this.terrain.waterAt(this.camPos.x, this.camPos.z)) + 0.04;
       if (this.camPos.y < cg) this.camPos.y = cg;
       this.colliders.resolve(this.camPos, 0.04);
       cam.position.copy(this.camPos);

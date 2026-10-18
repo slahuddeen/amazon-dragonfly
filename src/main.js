@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import { WORLD, SUN_DIR, SUN_COLOR, U, QUALITY } from './core/shared.js';
 import { installGlobalChunks, FOG } from './core/shaders.js';
 import { RNG } from './core/rng.js';
-import { buildLeafAtlas, buildBark, buildLitter, buildNoiseTexture } from './core/textures.js';
+import { buildLeafAtlas, buildBark, buildLitter, buildNoiseTexture, buildRock } from './core/textures.js';
 import { createMaterials } from './core/materials.js';
 import { Batcher, CardSystem, Scatter, Culler } from './core/geometry.js';
 import { Colliders } from './core/colliders.js';
 import { Terrain } from './world/terrain.js';
 import { createSky, bakeEnvironment } from './world/sky.js';
 import { createWater } from './world/water.js';
+import { createWaterFeatures } from './world/waterFeatures.js';
 import { createDistantForest } from './world/distantForest.js';
 import { createGodRays, createMotes, createMist } from './world/atmosphere.js';
 import { Forest } from './flora/trees.js';
@@ -41,7 +42,7 @@ async function init() {
   document.getElementById('app').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(FOG.lowColor.clone(), 0.016);
+  scene.fog = new THREE.FogExp2(FOG.lowColor.clone(), 0.02);
   const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.03, 3000);
   camera.layers.enable(1);
 
@@ -53,6 +54,7 @@ async function init() {
     barkRinged: buildBark('ringed', 7),
     litter: buildLitter(),
     noise: buildNoiseTexture(),
+    rock: buildRock(),
   };
   U.uNoiseTex.value = tex.noise;
   const M = createMaterials(tex);
@@ -63,6 +65,9 @@ async function init() {
 
   const batch = new Batcher(), cards = new CardSystem(), scatter = new Scatter(), colliders = new Colliders(), culler = new Culler();
   const rng = new RNG(2026);
+  const waterFx = createWaterFeatures(terrain, M, colliders, rng.fork(12));
+  scene.add(waterFx);
+  const waterInfo = waterFx.userData.info;
   const rz0 = terrain.riverZ(0);
   const heroPos = new THREE.Vector3(4, 0, rz0 - 22);
   heroPos.y = terrain.height(heroPos.x, heroPos.z);
@@ -76,6 +81,7 @@ async function init() {
       { type: 'ipe', x: 26, z: rz0 - 30, opts: { tint: 'pink' }, min: 10 },
     ],
   });
+  forest.hitchhikers(Math.round(70 * Math.max(0.6, QUALITY.density)));
   U.uCanopyMap.value = forest.buildCoverage();
 
   hud.progress(0.4, 'Raising palms and tree ferns…'); await tick();
@@ -100,7 +106,7 @@ async function init() {
   const ground = new Ground({ terrain, batch, forest, plants, epiphytes: epi, colliders, materials: M, rng: rng.fork(6) });
   ground.logs();
   ground.snags();
-  const nest = new THREE.Vector3(-12, 0, rz0 - 12);
+  const nest = new THREE.Vector3(17, 0, rz0 - 14);
   const antTarget = forest.trees.find((t) => t.type === 'understory' && Math.hypot(t.x - nest.x, t.z - nest.z) > 10 && Math.hypot(t.x - nest.x, t.z - nest.z) < 22) || { x: nest.x - 14, z: nest.z - 8 };
   ground.antColony(nest, antTarget);
 
@@ -112,7 +118,7 @@ async function init() {
     vine: { customDepthMaterial: M.depth.vine },
     plain: { maxDist: 160 }, glossy: { maxDist: 120, castShadow: false },
   });
-  cards.build(world, M.cards, M.depth.cards, culler, { crown: {}, detail: { maxDist: 130 } });
+  cards.build(world, M.cards, M.depth.cards, culler, { crown: {}, mid: { maxDist: 170 }, low: { maxDist: 95 }, detail: { maxDist: 110 } });
   scatter.build(world, culler);
   world.add(ground.buildRings(tex.atlas, terrain.heightTex));
 
@@ -156,7 +162,7 @@ async function init() {
   fauna.push(new Caimans(scene, { terrain, rng: frng.fork(6), xs: [-40, 35, 70] }));
   if (ground.antTrail) fauna.push(new Ants(scene, ground.antTrail, frng.fork(7)));
   // arboreal ant highways up the lianas (trunk -> limbs -> over the crowns -> next tree)
-  const highways = vines.trails.slice().sort((a, b) => a.pts[0].distanceToSquared(spawn) - b.pts[0].distanceToSquared(spawn)).slice(0, 8);
+  const highways = vines.trails.concat(forest.trails || []).sort((a, b) => a.pts[0].distanceToSquared(spawn) - b.pts[0].distanceToSquared(spawn)).slice(0, 8);
   highways.forEach((tr, i) => fauna.push(new Ants(scene, { pts: tr.pts }, frng.fork(20 + i), { count: 260, leaves: false, color: i % 2 ? 0x1a1008 : 0x6a3010, speed: 1.6, width: 0.012, lift: 0.05 })));
   // frogs: bromeliad tanks, logs and the forest floor near the start
   const frogSpots = [];
@@ -200,7 +206,7 @@ async function init() {
   world.add(terrain.mesh);
   const toHero = heroPos.clone().sub(spawn);
   player.setPose(spawn, Math.atan2(-toHero.x, -toHero.z), 0.05);
-  const H = (x, z) => Math.max(terrain.height(x, z), 0);
+  const H = (x, z) => Math.max(terrain.height(x, z), terrain.waterAt(x, z));
   const hx = heroPos.x, hz = heroPos.z, hy = heroPos.y;
   const tourPts = [
     [spawn.x, spawn.y, spawn.z],
@@ -219,6 +225,13 @@ async function init() {
     [30, 1.2, terrain.riverZ(30)],
     [10, 0.7, terrain.riverZ(10) + 1],
     [nest.x + 3, H(nest.x + 3, nest.z) + 0.5, nest.z + 2],
+    [waterInfo.falls[0].bot.x + 7, waterInfo.falls[0].bot.y + 2.5, waterInfo.falls[0].bot.z + 6],
+    [waterInfo.falls[0].bot.x + 2, waterInfo.falls[0].bot.y + 4.5, waterInfo.falls[0].bot.z + 2],
+    [waterInfo.falls[0].top.x + 3, waterInfo.falls[0].top.y + 3, waterInfo.falls[0].top.z - 4],
+    [waterInfo.cave.mouth.x - 4, waterInfo.cave.mouth.y + 6, waterInfo.cave.mouth.z - 12],
+    [waterInfo.cave.mouth.x, waterInfo.cave.mouth.y + 1, waterInfo.cave.mouth.z + 6],
+    [waterInfo.cave.inside.x, waterInfo.cave.inside.y, waterInfo.cave.inside.z],
+    [waterInfo.cave.mouth.x + 1, waterInfo.cave.mouth.y + 0.5, waterInfo.cave.mouth.z + 3],
     [-14, H(-14, rz0 - 20) + 1.8, rz0 - 20],
     [spawn.x - 3, spawn.y + 0.3, spawn.z - 3],
   ].map((a) => new THREE.Vector3(...a));
@@ -293,6 +306,7 @@ async function init() {
     motes.material.uniforms.uCam.value.copy(cp);
     motes.material.uniforms.uPix.value = renderer.getPixelRatio() * innerHeight / 900;
     mist.userData.update(t);
+    waterFx.userData.update(t);
     for (const f of fauna) f.update(dt, t, cp);
     // shadows follow the view, snapped to texels in light space
     camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
@@ -314,7 +328,9 @@ async function init() {
     renderer.toneMappingExposure = exposure;
     post.grade.uniforms.uUnder.value = under;
     post.grade.uniforms.uTime.value = t;
-    audio.update(player.speed());
+    let fallD = Infinity;
+    for (const f of waterInfo.falls) fallD = Math.min(fallD, cp.distanceTo(f.bot) / Math.max(0.5, f.drop / 4));
+    audio.update(player.speed(), fallD);
     hud.update(dt, cp.y - Math.max(terrain.height(cp.x, cp.z), 0));
     post.composer.render(dt);
     if (!still) requestAnimationFrame(frame);

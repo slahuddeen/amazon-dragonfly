@@ -38,6 +38,9 @@ export function createMaterials(tex) {
   M.barkSmooth = bark(tex.barkSmooth.map, tex.barkSmooth.normalMap, 0xd0c8b8, 'smooth', 0.4, 1.1);
   M.barkPale = bark(tex.barkRinged.map, tex.barkRinged.normalMap, 0xf0ece0, 'pale', 0.3, 0.8);
   M.barkPalm = bark(tex.barkRinged.map, tex.barkRinged.normalMap, 0xa89c88, 'palm', 0.5, 1.0);
+  M.rock = bark(tex.rock.map, tex.rock.normalMap, 0xd8c8b0, 'rock', 0.9, 1.2);
+  M.rockDouble = bark(tex.rock.map, tex.rock.normalMap, 0xd8c8b0, 'rock2', 0.6, 1.2);
+  M.rockDouble.side = THREE.DoubleSide;
   M.roots = bark(tex.barkSmooth.map, tex.barkSmooth.normalMap, 0xa49a88, 'roots', 0.9, 0.8);
 
   M.vine = patchMaterial(new THREE.MeshStandardMaterial({
@@ -46,12 +49,12 @@ export function createMaterials(tex) {
 
   M.cards = patchMaterial(new THREE.MeshStandardMaterial({
     map: tex.atlas, alphaTest: 0.45, alphaToCoverage: a2c, side: THREE.DoubleSide,
-    roughness: 0.58, metalness: 0,
+    roughness: 0.45, metalness: 0,
   }), { key: 'cards', cards: true, translucent: 1.0, noFlip: true });
 
   M.plantLeaf = patchMaterial(new THREE.MeshStandardMaterial({
     map: tex.atlas, alphaTest: 0.45, alphaToCoverage: a2c, side: THREE.DoubleSide,
-    vertexColors: true, roughness: 0.5, metalness: 0,
+    vertexColors: true, roughness: 0.4, metalness: 0,
   }), { key: 'plantLeaf', windAttr: 'aWind', translucent: 0.9 });
 
   M.plain = patchMaterial(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }), { key: 'plain' });

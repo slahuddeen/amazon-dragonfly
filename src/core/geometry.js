@@ -281,12 +281,13 @@ export class Batcher {
     let tris = 0;
     for (const [key, e] of this.map) {
       if (e.mb.count === 0) continue;
-      const mat = materials[e.matKey];
+      const baseKey = e.matKey.split('@')[0];
+      const mat = materials[baseKey];
       if (!mat) { console.warn('missing material', e.matKey); continue; }
       const g = e.mb.toGeometry();
       tris += e.mb.idx.length / 3;
       const m = new THREE.Mesh(g, mat);
-      const s = settings[e.matKey] || {};
+      const s = settings[e.matKey] || (e.matKey.endsWith('@near') ? { maxDist: 110, ...(settings[baseKey] || {}) } : settings[baseKey]) || {};
       m.castShadow = s.castShadow ?? true;
       m.receiveShadow = true;
       if (s.customDepthMaterial) m.customDepthMaterial = s.customDepthMaterial;

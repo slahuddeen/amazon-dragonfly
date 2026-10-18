@@ -27,6 +27,8 @@ export class Ambience {
     const hf = ctx.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 220;
     this.humGain = ctx.createGain(); this.humGain.gain.value = 0;
     this.hum.connect(hf).connect(this.humGain).connect(this.master); this.hum.start();
+    // waterfall roar (gain follows distance to the nearest fall)
+    this.roar = this.loopNoise(900, 0.5, 0, 'lowpass');
     this.schedule();
   }
   loopNoise(freq, q, gain, type) {
@@ -75,9 +77,10 @@ export class Ambience {
     };
     setTimeout(tick, 1500);
   }
-  update(speed) {
+  update(speed, fallDist = Infinity) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    this.roar.gain.gain.setTargetAtTime(Math.min(0.9, 6 / Math.max(3, fallDist)) * 0.6, t, 0.3);
     this.humGain.gain.setTargetAtTime(this.muted ? 0 : 0.015 + Math.min(speed, 12) * 0.004, t, 0.1);
     this.hum.frequency.setTargetAtTime(30 + Math.min(speed, 12) * 2.5, t, 0.2);
   }
