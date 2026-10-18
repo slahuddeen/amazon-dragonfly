@@ -31,6 +31,10 @@ millions of triangles); use `?q=medium` or `?q=low` on laptops/integrated GPUs.
 
 ## What's in the forest
 
+**Terrain.** Ridged hills north of the river, river bluffs, a sandstone escarpment with a terrace behind it, a creek
+that drops over the escarpment as a waterfall into a plunge pool, cascades and a rocky ravine down to the river, sinkhole
+ponds, a cave tunnelled into the cliff, and mossy boulders. Steep ground blends to triplanar rock.
+
 **Vertical structure.** Trees are placed layer by layer (emergent → canopy → sub-canopy → understory) using
 light-competition rasters: each new tree goes where its layer is most open, so every layer closes into a ceiling that
 shades the one below.
@@ -40,6 +44,12 @@ species-specific crown envelope (umbrella crowns for emergent kapoks and giants,
 for saplings). Branches grow toward the points, and limb thickness follows the pipe model, so big trees end up with massive
 limbs feeding thousands of twigs. Foliage clusters sit on every twig tip.
 
+- Lower strata use architectural models after Hallé, Oldeman & Tomlinson (`src/flora/architectures.js`):
+  tiered Massart/Aubréville pagodas (young emergents, poles, *Terminalia*), Troll shade trees that spread one wide
+  layer of large leaves, Leeuwenberg forking treelets and unbranched Corner treelets with huge leaves
+- Life stages: saplings and poles waiting for a gap, mature crowns, old trees with bare dead limbs and heavier epiphyte loads;
+  shade leaves grow larger and darker deeper in each crown
+- *Clusia* hemiepiphytes riding host crowns, sending aerial roots down to the soil
 - Old-growth giants (55–68 m) with huge wedge-shaped plank buttresses, flared bases and arching surface roots
 - Kapok and Brazil-nut emergents, canopy and sub-canopy trees, cecropia pioneers along the river, flowering ipê
 - Strangler figs, including hollow ones where the host has rotted away and only the root lattice remains

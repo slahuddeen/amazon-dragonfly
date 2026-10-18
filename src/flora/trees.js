@@ -64,7 +64,7 @@ export const SPECIES = {
     tints: ['dark', 'mid'], epi: 0.8, hang: 0.8,
   },
   canopy: {
-    crown: { base: 0.55, R: [6, 10], ry: 0.55, cut: 0.6, count: 650, D: 0.6, di: 6, dk: 1.0, shell: 0.5, tropism: 0.08, tipR: 0.025, minR: 0.07, trunkTaper: 0.6, cards: [2, 3], size: [1.6, 2.3] },
+    crown: { base: 0.55, R: [7, 11.5], ry: 0.5, cut: 0.6, count: 700, D: 0.6, di: 6, dk: 1.0, shell: 0.5, tropism: 0.08, tipR: 0.025, minR: 0.07, trunkTaper: 0.6, cards: [2, 3], size: [1.6, 2.3] },
     bark: 'barkDark', tint: 0xc0b0a0,
     trunk: { h: [22, 32], r: [0.45, 0.95] },
     buttress: { n: [4, 7], h: [2.2, 5], reach: [2, 4.5], thick: 0.45, chance: 0.7 },
@@ -657,15 +657,15 @@ export class Forest {
     fill('canopy', 'fig', 4, 12, 3);
     for (let i = 0; i < 2; i++) fill('canopy', 'fig', 1, 12, 3, { treeOpts: { hollow: true, radius: rng.range(1.1, 1.5) } });
     fill('canopy', 'ipe', 3, 10, 3);
-    fill('canopy', 'canopy', Math.round(300 * Math.max(0.85, D)), 4, 2);
+    fill('canopy', 'canopy', Math.round(380 * Math.max(0.85, D)), 4, 2, { samples: 18 });
     fill('canopy', 'cecropia', 18, 3, 0.5, { pred: (x, z) => T.bankDist(x, z) < 14 });
     // sub-canopy: domed midstory trees, tiered Terminalia, and poles of future emergents
-    fill('sub', 'midstory', Math.round(260 * D), 3, 1.5);
+    fill('sub', 'midstory', Math.round(210 * D), 3, 1.5);
     fill('sub', 'terminalia', Math.round(90 * D), 3, 1.5);
     fill('sub', 'pole', Math.round(110 * D), 2.5, 1.5, { lightSeeking: 0.6 });
     // understory: shade trees spreading single wide layers, small domed trees
     fill('under', 'shadeTree', Math.round(480 * D), 1.8, 1.0, { lightSeeking: 0.1 });
-    fill('under', 'understory', Math.round(320 * D), 2.0, 1.0);
+    fill('under', 'understory', Math.round(220 * D), 2.0, 1.0);
     // treelets & saplings: big-leaved shade specialists and the next generation waiting for a gap
     fill('treelet', 'bigLeaf', Math.round(520 * D), 1.2, 0.8, { lightSeeking: 0.0, samples: 6 });
     fill('treelet', 'forkTree', Math.round(300 * D), 1.4, 0.8, { samples: 6 });

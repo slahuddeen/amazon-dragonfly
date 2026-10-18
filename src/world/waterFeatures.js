@@ -176,7 +176,7 @@ export function createWaterFeatures(terrain, M, colliders, rng) {
   }
   // foam & spray at the foot of each fall
   {
-    const per = 260, n = info.falls.length * per;
+    const per = 520, n = info.falls.length * per;
     const p = new Float32Array(n * 3), sd = new Float32Array(n * 4);
     info.falls.forEach((f, k) => {
       for (let j = 0; j < per; j++) {
@@ -199,12 +199,12 @@ export function createWaterFeatures(terrain, M, colliders, rng) {
           o.y = life * (1.0 - life) * 3.0 * (0.5 + aSeed.x) ;
           vec4 mv = viewMatrix * vec4(position + o, 1.0);
           vA = (1.0 - life) * smoothstep(60.0, 10.0, -mv.z);
-          gl_PointSize = clamp(60.0 * (0.4 + aSeed.x) / max(-mv.z, 0.1), 1.0, 40.0);
+          gl_PointSize = clamp(26.0 * (0.4 + aSeed.x) / max(-mv.z, 0.1), 1.0, 16.0);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
         varying float vA;
-        void main() { float a = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5)); gl_FragColor = vec4(vec3(0.92, 0.96, 0.95), a * vA * 0.5); }`,
+        void main() { float a = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5)); gl_FragColor = vec4(vec3(0.92, 0.96, 0.95), a * vA * 0.32); }`,
       transparent: true, depthWrite: false,
     });
     const pts = new THREE.Points(g, mat);
@@ -227,7 +227,7 @@ export function createWaterFeatures(terrain, M, colliders, rng) {
     const mb = new MeshBuilder();
     mb.setColor([1, 1, 1]);
     const rings = [];
-    const M = 22;
+    const SEG = 22;
     const roofTop = cv.top - cv.floor + 0.6;
     for (let k = 0; k <= 12; k++) {
       const t = k / 12;
@@ -237,20 +237,20 @@ export function createWaterFeatures(terrain, M, colliders, rng) {
       const ow = cv.hw + 6, oh = roofTop;
       const pts = [], nrm = [];
       // inner arch (right -> left) then outer arch (left -> right): a closed rock ring
-      for (let j = 0; j < M / 2; j++) {
-        const a = (j / (M / 2 - 1)) * Math.PI;
+      for (let j = 0; j < SEG / 2; j++) {
+        const a = (j / (SEG / 2 - 1)) * Math.PI;
         const n1 = 1 + 0.12 * Math.sin(j * 2.1 + k);
         pts.push(new THREE.Vector3(cv.x + Math.cos(a) * hw * n1, cv.floor - 0.4 + Math.sin(a) * ah * n1 + 0.4, z));
         nrm.push(new THREE.Vector3(-Math.cos(a), -Math.sin(a), 0));
       }
-      for (let j = 0; j < M / 2; j++) {
-        const a = Math.PI - (j / (M / 2 - 1)) * Math.PI;
+      for (let j = 0; j < SEG / 2; j++) {
+        const a = Math.PI - (j / (SEG / 2 - 1)) * Math.PI;
         pts.push(new THREE.Vector3(cv.x + Math.cos(a) * ow, cv.floor - 0.6 + Math.sin(a) * oh, z));
         nrm.push(new THREE.Vector3(Math.cos(a), Math.sin(a), 0));
       }
       rings.push({ pts, nrm, v: t * 4 });
     }
-    addLoft(mb, rings, 3, () => 0.6);
+    addLoft(mb, rings, 3, () => 0.12);
     // mouth face (annulus between inner and outer arch) and back wall
     const capRing = (r, flip) => {
       const base = mb.count, n = r.pts.length, h = n / 2;
@@ -265,8 +265,8 @@ export function createWaterFeatures(terrain, M, colliders, rng) {
     const bb = mb.count;
     const ctr = new THREE.Vector3(cv.x, cv.floor + 0.8, back.pts[0].z);
     mb.v(ctr.x, ctr.y, ctr.z, 0, 0, 1, 0.5, 0.5, 0.5);
-    for (let j = 0; j < M / 2; j++) { const p = back.pts[j]; mb.v(p.x, p.y, p.z, 0, 0, 1, j / 10, 0, 0.5); }
-    for (let j = 0; j < M / 2 - 1; j++) mb.tri(bb, bb + 1 + j, bb + 2 + j);
+    for (let j = 0; j < SEG / 2; j++) { const p = back.pts[j]; mb.v(p.x, p.y, p.z, 0, 0, 1, j / 10, 0, 0.5); }
+    for (let j = 0; j < SEG / 2 - 1; j++) mb.tri(bb, bb + 1 + j, bb + 2 + j);
     // darken the interior via vertex colours
     const cavity = mb.toGeometry();
     const pc = cavity.attributes.position, cc = cavity.attributes.color;

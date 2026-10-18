@@ -420,7 +420,7 @@ export class Vines {
     // aerial roots (figs & kapoks especially)
     for (const h of F.hangs) {
       const t = h.tree;
-      const p = t.type === 'fig' ? 0.6 : t.type === 'kapok' ? 0.22 : t.type === 'canopy' ? 0.06 : 0.03;
+      const p = t.type === 'fig' ? 0.35 : t.type === 'kapok' || t.type === 'giant' ? 0.08 : t.type === 'canopy' ? 0.05 : 0.03;
       if (rng.chance(p)) this.aerialRoots(h, rng, rng.int(2, 7));
     }
     // climbers on trunks
