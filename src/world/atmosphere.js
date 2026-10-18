@@ -49,7 +49,8 @@ export function createGodRays(forest, terrain, rng) {
       void main() {
         vec3 axis = aBot - aTop;
         vec3 p = aTop + axis * position.y;
-        vec3 side = normalize(cross(axis, cameraPosition - p));
+        vec3 sd = cross(axis, cameraPosition - p);
+        vec3 side = dot(sd, sd) > 1e-8 ? normalize(sd) : vec3(1.0, 0.0, 0.0);
         vec3 wp = p + side * position.x * aW.x;
         vUv = vec2(position.x + 0.5, position.y);
         vSeed = aW.y; vWorld = wp; vW = aW.x;

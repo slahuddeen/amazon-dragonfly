@@ -7,6 +7,21 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { QUALITY } from '../core/shared.js';
 
+// Replaces NaN/Inf and clamps extreme HDR values so one bad pixel can never be
+// smeared by the bloom mip chain into black squares (or a black screen).
+const SanitizeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      bool bad = any(isnan(c.rgb)) || any(isinf(c.rgb)) || !(c.r >= 0.0) || !(c.g >= 0.0) || !(c.b >= 0.0);
+      c.rgb = bad ? vec3(0.0) : min(c.rgb, vec3(48.0));
+      gl_FragColor = vec4(c.rgb, 1.0);
+    }`,
+};
+
 const GradeShader = {
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uUnder: { value: 1 }, uRes: { value: new THREE.Vector2(1, 1) } },
   vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
@@ -39,6 +54,7 @@ export function createPost(renderer, scene, camera) {
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: QUALITY.msaa });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new ShaderPass(SanitizeShader));
   let bloom = null;
   if (QUALITY.bloom) {
     bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.32, 0.55, 0.92);

@@ -170,7 +170,7 @@ export function patchMaterial(mat, opts = {}) {
       #endif`);
       if (vs.includes('#include <defaultnormal_vertex>')) {
         vs = vs.replace('#include <defaultnormal_vertex>', `#include <defaultnormal_vertex>
-        transformedNormal = normalize(mat3(viewMatrix) * aNrm);`);
+        transformedNormal = normalize(mat3(viewMatrix) * aNrm + vec3(0.0, 1e-4, 0.0));`);
       }
     }
     if (opts.vertexEnd) vs = vs.replace('#include <fog_vertex>', '#include <fog_vertex>\n' + opts.vertexEnd);

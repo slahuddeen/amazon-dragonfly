@@ -92,9 +92,9 @@ export function buildDragonfly(scheme = 'flame', scale = 1) {
   const wingGeo = new THREE.PlaneGeometry(1, 1);
   wingGeo.rotateX(-Math.PI / 2);
   wingGeo.translate(0.5, 0, 0);
-  const wm = new THREE.MeshPhysicalMaterial({
+  const wm = new THREE.MeshStandardMaterial({
     map: getWingTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.15, metalness: 0,
-    iridescence: 1, iridescenceIOR: 1.35, iridescenceThicknessRange: [200, 700], opacity: 1,
+    opacity: 1, envMapIntensity: 1.4,
   });
   const wings = [];
   for (const [z, len, wid] of [[0.022, 0.039, 0.0095], [0.0125, 0.037, 0.0125]]) {

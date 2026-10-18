@@ -291,6 +291,7 @@ async function init() {
 
   const clock = new THREE.Clock();
   let exposure = 1.4, under = 1;
+  const lastGood = player.pos.clone();
   hud.ready();
   if (params.get('autostart')) start.classList.add('hidden');
 
@@ -299,6 +300,12 @@ async function init() {
     const t = clock.elapsedTime;
     U.uTime.value = t;
     player.update(dt, t);
+    if (![player.pos.x, player.pos.y, player.pos.z, camera.position.x, camera.position.y, camera.position.z, player.yaw, player.pitch].every(Number.isFinite)) {
+      console.warn('[amazonia] recovering from invalid camera state');
+      player.perched = null; player.vel.set(0, 0, 0); player.roll = 0;
+      player.setPose(lastGood.clone(), Number.isFinite(player.yaw) ? player.yaw : 0, 0);
+      player.update(0.016, t);
+    } else lastGood.copy(player.pos);
     const cp = camera.position;
     culler.update(cp);
     ground.update(cp);
@@ -325,6 +332,7 @@ async function init() {
     under += (u - under) * (1 - Math.exp(-dt * 1.5));
     const target = THREE.MathUtils.lerp(1.0, 3.3, under);
     exposure += (target - exposure) * (1 - Math.exp(-dt * 1.2));
+    if (!Number.isFinite(exposure)) { exposure = 1.4; under = 0.5; }
     renderer.toneMappingExposure = exposure;
     post.grade.uniforms.uUnder.value = under;
     post.grade.uniforms.uTime.value = t;
