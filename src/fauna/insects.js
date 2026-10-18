@@ -286,7 +286,9 @@ export class Ants {
       this.state.push({ s: rng.range(0, this.len), v: rng.range(0.025, 0.045) * (opts.speed ?? 1), off: rng.range(-1, 1) * (opts.width ?? 0.025), inbound, leaf: opts.leaves !== false && inbound && rng.chance(0.85), wob: rng.range(0, 6) });
     }
     scene.add(this.ants, this.leaves);
-    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.p = new THREE.Vector3(); this.sc = new THREE.Vector3(1, 1, 1);
+    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.p = new THREE.Vector3(); this.sc = new THREE.Vector3(1, 1, 1).multiplyScalar(opts.scale ?? 1);
+    this.posArr = new Float32Array(N * 3).fill(1e9);
+    this.visibleNow = false;
     this.center = pts[Math.floor(pts.length / 2)].clone();
     this.reach = opts.reach ?? (this.len * 0.6 + 25);
     this.hidden = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -303,6 +305,7 @@ export class Ants {
     let near = false;
     for (let i = 0; i < this.trail.pts.length && !near; i += 8) near = cam.distanceToSquared(this.trail.pts[i]) < 900;
     this.ants.visible = this.leaves.visible = near;
+    this.visibleNow = near;
     if (!near) return;
     const dir = new THREE.Vector3(), side = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < this.state.length; i++) {
@@ -319,11 +322,28 @@ export class Ants {
       this.p.addScaledVector(side, a.off + Math.sin(t * 3 + a.wob) * 0.003).addScaledVector(nrm, this.lift);
       this.q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, nrm, dir));
       this.m.compose(this.p, this.q, this.sc);
+      this.posArr[i * 3] = this.p.x; this.posArr[i * 3 + 1] = this.p.y; this.posArr[i * 3 + 2] = this.p.z;
       this.ants.setMatrixAt(i, this.m);
       this.leaves.setMatrixAt(i, a.leaf ? this.m : this.hidden);
     }
     this.ants.instanceMatrix.needsUpdate = true;
     this.leaves.instanceMatrix.needsUpdate = true;
+  }
+  // a dragonfly snaps up any ant within reach of its jaws; the colony sends a replacement
+  tryEat(head, r = 0.035) {
+    if (!this.visibleNow) return 0;
+    let eaten = 0;
+    const r2 = r * r, P = this.posArr;
+    for (let i = 0; i < this.state.length; i++) {
+      const dx = P[i * 3] - head.x, dy = P[i * 3 + 1] - head.y, dz = P[i * 3 + 2] - head.z;
+      if (dx * dx + dy * dy + dz * dz < r2) {
+        const a = this.state[i];
+        a.s = a.inbound ? this.len : 0; // back to the nest / trail start
+        P[i * 3] = 1e9;
+        eaten++;
+      }
+    }
+    return eaten;
   }
 }
 

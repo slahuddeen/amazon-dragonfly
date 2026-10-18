@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { WORLD } from './shared.js';
 
 const _v = new THREE.Vector3();
+// When set, every world-space tube is also recorded as a crawlable surface.
+export const PERCH = { index: null };
 const UP = new THREE.Vector3(0, 1, 0);
 
 export class MeshBuilder {
@@ -87,6 +89,12 @@ export function addTube(mb, pts, radii, opts = {}) {
   for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < radial; j++) {
     const a = base + i * R + j, b = a + 1, c = a + R + 1, d = a + R;
     mb.quad(a, b, c, d);
+  }
+  if (PERCH.index && opts.perch !== false) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const r = (radii[i] + radii[i + 1]) * 0.5;
+      if (r >= 0.004) PERCH.index.add(pts[i], pts[i + 1], r);
+    }
   }
   if (opts.capEnd) {
     const i = pts.length - 1, p = pts[i], t = T[i];

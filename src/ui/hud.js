@@ -17,6 +17,11 @@ export class HUD {
     this.current = null;
     this.frames = 0; this.acc = 0;
   }
+  setScore(n) {
+    const el = document.getElementById('score');
+    el.textContent = `Ants eaten: ${n}`;
+    el.classList.remove('hidden'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
   progress(frac, msg) {
     document.getElementById('loadbar').style.width = (frac * 100).toFixed(0) + '%';
     if (msg) document.getElementById('loadmsg').textContent = msg;

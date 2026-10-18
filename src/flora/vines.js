@@ -53,21 +53,45 @@ export class Vines {
     const gy = this.terrain.height(gx, gz);
     const bottom = new THREE.Vector3(gx, gy - 0.2, gz);
     const h = top.y - gy;
-    const n = Math.ceil(h / 1.0);
+    // each liana gets a habit: hanging, corkscrew, loops, S-curve, or a coil heaped on the ground
+    const style = rng.pick(['hang', 'corkscrew', 'corkscrew', 'loops', 'scurve', 'coil', 'coil']);
+    const n = Math.ceil(h / (style === 'hang' ? 1.0 : 0.35));
     const mid = [];
-    const loopAt = rng.chance(0.4) ? rng.range(0.3, 0.8) : -1;
+    const helixR = rng.range(0.15, 0.45), pitch = rng.range(0.9, 2.5), ph0 = rng.range(0, 6.28);
+    const amp = rng.range(0.6, 1.6), waves = rng.range(1.5, 3.5);
+    const loops = style === 'loops' ? Array.from({ length: rng.int(2, 4) }, () => rng.range(0.2, 0.85)) : [];
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       const p = top.clone().lerp(bottom, t);
-      // hang mostly vertical then sweep to the ground anchor
       const sweep = Math.pow(t, 3);
       p.x = top.x + (gx - top.x) * sweep + Math.sin(t * 11 + gx) * 0.25 * (1 - t);
       p.z = top.z + (gz - top.z) * sweep + Math.cos(t * 9 + gz) * 0.25 * (1 - t);
-      if (loopAt > 0 && Math.abs(t - loopAt) < 0.06) {
-        const k = (t - loopAt + 0.06) / 0.12 * Math.PI * 2;
-        p.x += Math.sin(k) * 0.6; p.y += (1 - Math.cos(k)) * 0.5;
+      const env = Math.sin(Math.PI * Math.min(1, t * 1.15)); // free in the middle, anchored at both ends
+      if (style === 'corkscrew') {
+        const a = ph0 + (t * h / pitch) * Math.PI * 2;
+        p.x += Math.cos(a) * helixR * env; p.z += Math.sin(a) * helixR * env;
+      } else if (style === 'scurve') {
+        p.x += Math.sin(t * waves * Math.PI * 2 + ph0) * amp * env;
+        p.z += Math.cos(t * waves * Math.PI + ph0) * amp * 0.4 * env;
+      }
+      for (const L of loops) {
+        if (Math.abs(t - L) < 0.05) {
+          const k = (t - L + 0.05) / 0.1 * Math.PI * 2;
+          p.x += Math.sin(k) * 0.7; p.y += (1 - Math.cos(k)) * 0.6; p.z += Math.sin(k * 0.5) * 0.3;
+        }
       }
       mid.push(p);
+    }
+    if (style === 'coil') {
+      // surplus length lies in a loose spiral heap on the litter
+      const turns = rng.range(1.5, 3.5), R0 = rng.range(0.5, 1.1);
+      const steps = Math.ceil(turns * 18);
+      const a0 = rng.range(0, 6.28);
+      for (let k = 1; k <= steps; k++) {
+        const u = k / steps, a = a0 + u * turns * Math.PI * 2, rr = R0 * (1 - 0.6 * u);
+        const x = gx + Math.cos(a) * rr - Math.cos(a0) * R0, z = gz + Math.sin(a) * rr - Math.sin(a0) * R0;
+        mid.push(new THREE.Vector3(x, this.terrain.height(x, z) + 0.03 + 0.02 * Math.sin(k), z));
+      }
     }
     const r = rng.range(0.025, 0.06);
     const strands = rng.chance(0.55) ? 2 : 1;
@@ -128,11 +152,13 @@ export class Vines {
       const reach = rng.chance(0.5) ? 1 : rng.range(0.3, 0.95);
       const endY = reach === 1 ? gy - 0.1 : start.y - (start.y - gy) * reach;
       const len = start.y - endY;
-      const n = Math.max(2, Math.ceil(len / 2.5));
+      const curly = rng.chance(0.35);
+      const n = Math.max(2, Math.ceil(len / (curly ? 0.6 : 2.5)));
       const pts = [];
       for (let i = 0; i <= n; i++) {
         const t = i / n;
-        pts.push(new THREE.Vector3(start.x + Math.sin(t * 5 + k) * 0.05, start.y - t * len, start.z + Math.cos(t * 4 + k) * 0.05));
+        const wv = curly ? 0.25 : 0.05;
+        pts.push(new THREE.Vector3(start.x + Math.sin(t * 5 * (curly ? 3 : 1) + k) * wv, start.y - t * len, start.z + Math.cos(t * 4 * (curly ? 3 : 1) + k) * wv));
       }
       mb.setColor(new THREE.Color(rng.chance(0.5) ? 0x9a6a4a : 0x7a6a50));
       const r = rng.range(0.009, 0.018);

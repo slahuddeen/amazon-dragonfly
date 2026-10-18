@@ -84,6 +84,14 @@ export class Ambience {
     this.humGain.gain.setTargetAtTime(this.muted ? 0 : 0.015 + Math.min(speed, 12) * 0.004, t, 0.1);
     this.hum.frequency.setTargetAtTime(30 + Math.min(speed, 12) * 2.5, t, 0.2);
   }
+  crunch() {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2800; f.Q.value = 1.2;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    src.connect(f).connect(g).connect(this.master); src.start(t, Math.random() * 3, 0.12);
+  }
   toggle() {
     if (!this.ctx) return;
     this.muted = !this.muted;

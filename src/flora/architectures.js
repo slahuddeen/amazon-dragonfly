@@ -9,7 +9,7 @@
 //  fork   - Leeuwenberg: repeated forking, a rosette of big leaves at every tip (Schefflera-like).
 //  corner - Corner: one unbranched stem with a crown of huge leaves (understory treelets).
 import * as THREE from 'three';
-import { addTube, cardBasis } from '../core/geometry.js';
+import { addTube, addEllipsoid, cardBasis } from '../core/geometry.js';
 import { CELL, cellRect } from '../core/textures.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -226,7 +226,64 @@ export function corner(F, tree, rng, sp) {
   finish(F, tree, trunk, radii, top.clone(), sp.leaf[1], top.y + sp.leaf[1] * 0.5);
 }
 
-export const ARCHITECTURES = { tiers, troll, fork, corner };
+// ------------------------------------------------------------------ woody understory shrubs
+// Several stems from the base, alternating side branches, opposite leaf pairs, some with berries.
+export function shrub(F, tree, rng, sp) {
+  const H = tree.height;
+  const stems = rng.int(2, 5);
+  const mb = F.batch.get(sp.bark, tree.x, tree.z);
+  const berries = rng.chance(0.35) ? new THREE.Color(rng.pick([0x2a2a90, 0x6a1a6a, 0xd01818, 0xf08020, 0x101010])) : null;
+  const big = rng.chance(0.35); // Miconia-type: few, large, deeply veined leaves
+  let trunk = null, trunkR = null, maxR = 0.6;
+  for (let k = 0; k < stems; k++) {
+    const a = rng.range(0, 6.28), lean = rng.range(0.1, 0.5);
+    const dir = new THREE.Vector3(Math.cos(a) * lean, 1, Math.sin(a) * lean).normalize();
+    const base = new THREE.Vector3(tree.x + Math.cos(a) * 0.05, tree.gy - 0.05, tree.z + Math.sin(a) * 0.05);
+    const h = H * rng.range(0.6, 1.0);
+    const pts = stemPath(base, dir, h, 5, 0.12, rng, 0.04);
+    const r0 = rng.range(0.012, 0.028);
+    mb.setColor(tree.barkTint);
+    addTube(mb, pts, pts.map((_, i) => r0 * (1 - 0.6 * i / 5)), { radial: 4, capEnd: true, windFn: (i) => 0.012 * i });
+    if (!trunk) { trunk = pts; trunkR = pts.map((_, i) => r0 * (1 - 0.6 * i / 5)); }
+    // side branches
+    for (let j = 2; j <= 5; j++) {
+      const sa = a + (j % 2 ? 1 : -1) * rng.range(0.9, 1.6) + rng.range(-0.3, 0.3);
+      const out = new THREE.Vector3(Math.cos(sa), rng.range(0.15, 0.5), Math.sin(sa)).normalize();
+      const L = rng.range(0.25, 0.8) * (1.1 - j / 8) * (H / 1.8);
+      const bp = stemPath(pts[j], out, L, 3, 0.15, rng, -0.04);
+      addTube(mb, bp, bp.map((_, i) => r0 * 0.45 * (1 - 0.5 * i / 3)), { radial: 3, capEnd: true, windFn: (i) => 0.02 + 0.015 * i });
+      maxR = Math.max(maxR, Math.hypot(bp[3].x - tree.x, bp[3].z - tree.z));
+      // opposite leaf pairs along the branch
+      for (let q = 1; q <= 3; q++) {
+        const p = bp[q];
+        const t = new THREE.Vector3().subVectors(bp[q], bp[q - 1]).normalize();
+        const side = new THREE.Vector3(-t.z, 0, t.x).normalize();
+        for (const s2 of [-1, 1]) {
+          const yd = side.clone().multiplyScalar(s2).addScaledVector(t, 0.5); yd.y -= 0.15;
+          const sz = rng.range(...sp.leaf) * (big ? 1.9 : 1);
+          leaf(F, tree, sp.layer, p, yd, UP, sz * sp.aspect, sz, big ? CELL.broad : rng.pick(sp.cells), rng, { bend: -sz * 0.25, wind: 0.05 });
+        }
+      }
+      if (berries && rng.chance(0.6)) {
+        const g = F.batch.get('glossy@near', tree.x, tree.z);
+        g.setColor(berries);
+        const tip = bp[3];
+        for (let b = 0; b < 7; b++) addEllipsoid(g, tip.clone().add(new THREE.Vector3(rng.range(-0.04, 0.04), rng.range(-0.06, 0.01), rng.range(-0.04, 0.04))), 0.009, 0.009, 0.009, { w: 5, h: 4 });
+      }
+    }
+    // a crown of leaves at the stem tip
+    const tip = pts[pts.length - 1];
+    for (let j = 0; j < 4; j++) {
+      const aa = (j / 4) * 6.28 + a;
+      const sz = rng.range(...sp.leaf) * (big ? 1.9 : 1);
+      leaf(F, tree, sp.layer, tip, new THREE.Vector3(Math.cos(aa), 0.4, Math.sin(aa)), UP, sz * sp.aspect, sz, big ? CELL.broad : rng.pick(sp.cells), rng);
+    }
+  }
+  F.crowns.push({ x: tree.x, z: tree.z, r: maxR, top: tree.gy + H });
+  finish(F, tree, trunk, trunkR, new THREE.Vector3(tree.x, tree.gy + H * 0.6, tree.z), maxR, tree.gy + H);
+}
+
+export const ARCHITECTURES = { tiers, troll, fork, corner, shrub };
 
 // Species built on these models. Heights in metres; leaf = card size range; layer = card cull group.
 export const ARCH_SPECIES = {
@@ -238,6 +295,8 @@ export const ARCH_SPECIES = {
   shadeTree: { arch: 'troll', bark: 'barkDark@near', tint: 0x9a8a7a, h: [4, 11], r: [0.05, 0.14], spread: 3.0, branches: [4, 7], leaf: [0.35, 0.7], aspect: 0.55, cells: [CELL.broad, CELL.lance, CELL.broad], layer: 'low', tints: ['dark', 'mid', 'blue'] },
   // forking rosette treelets (Schefflera / Tabernaemontana)
   forkTree: { arch: 'fork', bark: 'barkPale@near', tint: 0xb8b0a0, h: [3, 9], r: [0.04, 0.1], depth: 2, rosette: [6, 10], leaf: [0.45, 0.9], aspect: 0.6, cells: [CELL.broad, CELL.heart, CELL.lance], layer: 'low', tints: ['mid', 'dark'] },
+  // woody understory shrubs (Piper, Psychotria, Miconia)
+  shrub: { arch: 'shrub', bark: 'barkDark@near', tint: 0x7a6a50, h: [0.7, 2.8], r: [0.015, 0.03], leaf: [0.12, 0.28], aspect: 0.5, cells: [CELL.lance, CELL.broad, CELL.lance], layer: 'low', tints: ['mid', 'dark', 'yellow', 'blue'] },
   // unbranched big-leaf treelets of the deep shade
   bigLeaf: { arch: 'corner', bark: 'barkPale@near', tint: 0xa0987a, h: [1.2, 4.5], r: [0.025, 0.05], rosette: [9, 15], leaf: [0.7, 1.5], aspect: 0.42, cells: [CELL.paddle, CELL.broad, CELL.lance], layer: 'low', tints: ['dark', 'mid'] },
 };

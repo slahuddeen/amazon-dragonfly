@@ -143,41 +143,17 @@ export class DragonflyPlayer {
     this.raycaster = new THREE.Raycaster();
     this.bind();
   }
-  // Land on the closest surface below / ahead (leaves, twigs, bark, vines, ground).
+  // Land on the closest surface below / ahead: leaves, twigs, branches, vines, roots, rock, ground.
   tryPerch() {
-    if (!this.perchTargets) return false;
-    const rc = this.raycaster;
-    rc.near = 0; rc.far = 2.5;
-    rc.layers.enableAll();
-    const cand = [];
-    this.perchTargets.traverse((o) => {
-      if (!o.isMesh || !o.visible || o.name === 'sky') return;
-      const g = o.geometry;
-      if (!g.boundingSphere) g.computeBoundingSphere();
-      const bs = o.isInstancedMesh ? (o.boundingSphere || (o.computeBoundingSphere(), o.boundingSphere)) : g.boundingSphere;
-      const c = bs.center.clone().applyMatrix4(o.matrixWorld);
-      if (c.distanceTo(this.pos) < bs.radius + 3) cand.push(o);
-    });
-    const f = this.forward();
-    const dirs = [new THREE.Vector3(0, -1, 0), f.clone().setY(f.y - 0.6).normalize(), f.clone(), f.clone().setY(f.y - 0.25).normalize()];
-    let best = null;
-    for (const d of dirs) {
-      rc.set(this.pos, d);
-      const hits = rc.intersectObjects(cand, false);
-      if (hits.length && (!best || hits[0].distance < best.distance)) best = hits[0];
-    }
-    if (!best) return false;
-    const n = best.face ? best.face.normal.clone() : new THREE.Vector3(0, 1, 0);
-    if (best.object.isInstancedMesh && best.instanceId !== undefined) {
-      const m = new THREE.Matrix4(); best.object.getMatrixAt(best.instanceId, m);
-      n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(m));
-    }
-    n.transformDirection(best.object.matrixWorld).normalize();
-    if (n.dot(rc.ray.direction) > 0) n.negate();
-    if (n.y < -0.2) n.set(0, 1, 0); // never hang upside-down under a leaf
-    this.perched = { p: best.point.clone().addScaledVector(n, 0.012), n };
+    if (!this.surfaces) return false;
+    const hit = this.surfaces.landing(this.pos, this.forward());
+    if (!hit) return false;
+    this.perched = { p: hit.p.clone().addScaledVector(hit.n, 0.008), n: hit.n.clone(), kind: hit.kind, from: this.pos.clone(), t: 0 };
     this.vel.set(0, 0, 0);
     return true;
+  }
+  headPos(out = new THREE.Vector3()) {
+    return out.set(0, 0, 0.034).applyQuaternion(this.model.quaternion).add(this.model.position);
   }
   bind() {
     addEventListener('keydown', (e) => {
@@ -185,8 +161,8 @@ export class DragonflyPlayer {
       this.keys.add(e.code);
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyQ', 'KeyE', 'KeyC'].includes(e.code) && this.touring) this.stopTour();
       if (e.code === 'KeyV') this.mode = this.mode === 'chase' ? 'fpv' : 'chase';
-      if (e.code === 'KeyF') { if (this.perched) this.perched = null; else if (!this.touring) this.tryPerch(); }
-      if (this.perched && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyQ', 'KeyE', 'KeyC'].includes(e.code)) { this.perched = null; this.vel.y = 0.6; }
+      if (e.code === 'KeyF') { if (this.perched) this.takeOff(); else if (!this.touring) this.tryPerch(); }
+      else if (this.perched && ['Space', 'KeyE'].includes(e.code)) this.takeOff();
       if (e.code === 'KeyT') this.touring ? this.stopTour() : this.startTour();
       if (e.code === 'Space') e.preventDefault();
     });
@@ -233,9 +209,9 @@ export class DragonflyPlayer {
     if (this.perched) {
       const sens = 0.0022;
       this.yaw -= this.mouse.dx * sens;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - this.mouse.dy * sens, -1.2, 1.2);
+      this.pitch = THREE.MathUtils.clamp(this.pitch - this.mouse.dy * sens, -1.4, 1.4);
       this.mouse.dx = this.mouse.dy = 0;
-      this.pos.copy(this.perched.p);
+      this.crawl(dt);
       this.vel.set(0, 0, 0);
       this.roll *= 0.9;
     } else if (this.touring) {
@@ -309,8 +285,44 @@ export class DragonflyPlayer {
       this.model.visible = false;
     }
   }
+  takeOff() {
+    if (!this.perched) return;
+    this.pos.copy(this.perched.p).addScaledVector(this.perched.n, 0.05);
+    this.vel.copy(this.perched.n).multiplyScalar(0.8);
+    this.perched = null;
+  }
+  // Walk over whatever we're standing on: project the input onto the surface, step, and
+  // re-attach to the nearest surface (wraps around twigs, crosses from leaf to branch...).
+  crawl(dt) {
+    const P = this.perched, k = this.keys;
+    P.t = Math.min(1, P.t + dt * 4); // landing glide
+    const fw = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
+    const st = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
+    this.crawling = false;
+    if ((fw || st) && this.surfaces && P.t >= 1) {
+      const n = P.n;
+      const cf = this.forward();
+      const tf = cf.clone().addScaledVector(n, -cf.dot(n));
+      if (tf.lengthSq() < 1e-5) tf.set(1, 0, 0).addScaledVector(n, -n.x);
+      tf.normalize();
+      const right = new THREE.Vector3().crossVectors(tf, n).normalize();
+      const speed = 0.14 * (k.has('ShiftLeft') || k.has('ShiftRight') ? 2.5 : 1) * this.speedMul;
+      const move = tf.multiplyScalar(fw).addScaledVector(right, st);
+      if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed * dt);
+      const q = P.p.clone().add(move);
+      const s = this.surfaces.nearest(q.clone().addScaledVector(n, 0.01), 0.1, n);
+      if (s) {
+        P.p.copy(s.p).addScaledVector(s.n, 0.008);
+        P.n.lerp(s.n, 0.35).normalize();
+        P.kind = s.kind;
+        this.crawling = true;
+      }
+    }
+    this.pos.copy(P.t < 1 ? P.from.clone().lerp(P.p, P.t) : P.p);
+  }
   updatePerchedView(dt, time) {
-    const { p, n } = this.perched;
+    const { n } = this.perched;
+    const p = this.pos;
     // body sits on the surface, aligned to its normal, heading where the player looks
     const f = this.forward().clone();
     const fwd = f.addScaledVector(n, -f.dot(n)).normalize();
@@ -320,6 +332,7 @@ export class DragonflyPlayer {
     this.model.position.copy(p);
     this.model.quaternion.setFromRotationMatrix(m);
     for (const w of this.model.userData.wings) w.pivot.rotation.z = w.side * (0.05 + Math.sin(time * 1.3) * 0.02); // wings held flat
+    if (this.crawling) this.model.position.addScaledVector(n, Math.abs(Math.sin(time * 18)) * 0.002);
     const cam = this.camera;
     const cf = this.forward();
     const desired = p.clone().addScaledVector(cf, -0.28).addScaledVector(n, 0.07);
@@ -330,4 +343,5 @@ export class DragonflyPlayer {
     this.model.visible = true;
   }
   speed() { return this.perched ? 0 : this.vel.length(); }
+  setSurfaces(s) { this.surfaces = s; }
 }

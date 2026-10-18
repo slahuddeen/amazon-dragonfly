@@ -168,6 +168,7 @@ export class Forest {
     this.trees.push(tree);
     if (sp.arch) { ARCHITECTURES[sp.arch](this, tree, rng, sp); return tree; }
     tree.old = (type === 'canopy' || type === 'brazilnut' || type === 'giant') && rng.chance(0.18);
+    tree.hollowBase = !opts.hollow && (opts.hollowBase || (tree.old && r > 0.55 && rng.chance(0.45)));
     const base = new THREE.Vector3(x, gy - 0.6, z);
     const dir = new THREE.Vector3(rng.range(-0.04, 0.04), 1, rng.range(-0.04, 0.04)).normalize();
     if (type === 'understory') dir.set(rng.range(-0.2, 0.2), 1, rng.range(-0.2, 0.2)).normalize();
@@ -212,24 +213,27 @@ export class Forest {
       this.growChildren(sp, tree, pts, radii, len, depth, rng, L);
       return;
     }
+    let tubeFrom = 0;
+    if (depth === 0 && tree.hollowBase) tubeFrom = this.hollowBase(sp, tree, pts, radii, rng);
     const radial = radialSegs(r0);
     const circ = Math.PI * 2 * r0;
     const mb = this.batch.get(sp.bark, tree.x, tree.z);
     mb.setColor(tree.barkTint);
     const nz = this.nz, seed = tree.x * 0.37 + depth * 3.1;
     const flutes = 5 + Math.floor(rng.next() * 4);
-    addTube(mb, pts, radii, {
+    const tp = tubeFrom ? pts.slice(tubeFrom) : pts, tr = tubeFrom ? radii.slice(tubeFrom) : radii;
+    addTube(mb, tp, tr, {
       radial, uRepeat: Math.max(1, Math.round(circ / 1.3)), vScale: depth === 0 ? 1.6 : 1.3,
       capEnd: true,
       radiusFn: r0 > 0.1 ? (i, th) => {
-        let m = 1 + 0.06 * nz.noise2(Math.cos(th) * 1.7 + seed, pts[i].y * 0.35 + Math.sin(th) * 1.7);
-        if (depth === 0) m += 0.13 * Math.cos(th * flutes + seed) * Math.exp(-Math.max(0, pts[i].y - tree.gy) / 3.5);
+        let m = 1 + 0.06 * nz.noise2(Math.cos(th) * 1.7 + seed, tp[i].y * 0.35 + Math.sin(th) * 1.7);
+        if (depth === 0) m += 0.13 * Math.cos(th * flutes + seed) * Math.exp(-Math.max(0, tp[i].y - tree.gy) / 3.5);
         return m;
       } : null,
-      windFn: (i) => depth === 0 ? Math.max(0, 1 - (pts[i].y - tree.gy) / 4) * 0.85 : 0.15,
+      windFn: (i) => depth === 0 ? Math.max(0, 1 - (tp[i].y - tree.gy) / 4) * 0.85 : 0.15,
     });
     // colliders
-    if (r0 > 0.09) for (let i = 0; i < pts.length - 1; i++) this.colliders.addCapsule(pts[i], pts[i + 1], (radii[i] + radii[i + 1]) * 0.5 + (depth === 0 ? 0.05 : 0));
+    if (r0 > 0.09) for (let i = tubeFrom; i < pts.length - 1; i++) this.colliders.addCapsule(pts[i], pts[i + 1], (radii[i] + radii[i + 1]) * 0.5 + (depth === 0 ? 0.05 : 0));
 
     // epiphyte & vine spots on the big limbs
     if (depth >= 1 && r0 > 0.12) {
@@ -289,6 +293,62 @@ export class Forest {
       else this.leafBlob(sp, tree, tip, tdir, rng);
       if (depth >= 1 && rng.chance(0.3)) this.perches.push({ p: tip.clone(), dir: tdir, tree });
     }
+  }
+
+  // Old tree with a rotted-out base: an open shell of bark with an arched entrance and a
+  // dark cavity you can fly up into. Returns the trunk index where the solid trunk resumes.
+  hollowBase(sp, tree, pts, radii, rng) {
+    const H = Math.min(tree.height * 0.3, rng.range(4, 8));
+    let top = pts.findIndex((p) => p.y - tree.gy > H);
+    if (top < 2) return 0;
+    const mb = this.batch.get(sp.bark, tree.x, tree.z);
+    mb.setColor(tree.barkTint);
+    const doorA = rng.range(0, 6.28), doorW = rng.range(0.5, 0.8), doorH = H * rng.range(0.45, 0.65);
+    const wall = 0.22;
+    const M = 28;
+    const rings = [];
+    for (let i = 0; i <= top; i++) {
+      const p = pts[i], R = radii[i] * 1.02, y = p.y - tree.gy;
+      // the entrance narrows to a point at doorH (gothic arch)
+      const g = y < doorH ? doorW * Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, y) / doorH, 2))) : 0;
+      const ring = [], nrm = [];
+      for (let j = 0; j < M / 2; j++) {   // outer wall, around the tree from one door jamb to the other
+        const a = doorA - g - (j / (M / 2 - 1)) * (Math.PI * 2 - 2 * g);
+        const w = 1 + 0.08 * Math.sin(a * 5 + i);
+        ring.push(new THREE.Vector3(p.x + Math.cos(a) * R * w, p.y, p.z + Math.sin(a) * R * w));
+        nrm.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+      }
+      for (let j = M / 2 - 1; j >= 0; j--) { // inner wall back again
+        const a = doorA - g - (j / (M / 2 - 1)) * (Math.PI * 2 - 2 * g);
+        const ri = Math.max(0.15, R - wall - R * 0.15);
+        ring.push(new THREE.Vector3(p.x + Math.cos(a) * ri, p.y, p.z + Math.sin(a) * ri));
+        nrm.push(new THREE.Vector3(-Math.cos(a), 0, -Math.sin(a)));
+      }
+      rings.push({ pts: ring, nrm, v: y / 1.6 });
+    }
+    const lb = mb.count;
+    addLoft(mb, rings, Math.max(2, Math.round(radii[0] * 4)), () => 0.5);
+    for (let i = 0; i < rings.length; i++) for (let j = M / 2; j < M; j++) { // darken the inside
+      const k = (lb + i * (M + 1) + j) * 3, f = 0.35 + 0.4 * (1 - (j - M / 2) / (M / 2)) * 0;
+      mb.c[k] *= 0.3 + f; mb.c[k + 1] *= 0.28 + f; mb.c[k + 2] *= 0.25 + f;
+    }
+    // dark cavity ceiling
+    const mc = this.batch.get('plain', tree.x, tree.z);
+    mc.setColor(new THREE.Color(0x1a120a));
+    const c = pts[top], rc = radii[top] * 0.85;
+    const base = mc.count;
+    mc.v(c.x, c.y + 0.3, c.z, 0, -1, 0, 0.5, 0.5, 0);
+    for (let j = 0; j <= 16; j++) { const a = (j / 16) * 6.283; mc.v(c.x + Math.cos(a) * rc, c.y - 0.1, c.z + Math.sin(a) * rc, 0, -1, 0, 0, 0, 0); }
+    for (let j = 0; j < 16; j++) { mc.tri(base, base + 2 + j, base + 1 + j); mc.tri(base, base + 1 + j, base + 2 + j); }
+    // colliders: a ring of posts for the wall, leaving the door open
+    for (let k = 0; k < 10; k++) {
+      const a = doorA + doorW + (k / 9) * (Math.PI * 2 - 2 * doorW);
+      const R0 = radii[0] * 0.95, R1 = radii[top] * 0.95;
+      this.colliders.addCapsule(new THREE.Vector3(pts[0].x + Math.cos(a) * R0, pts[0].y, pts[0].z + Math.sin(a) * R0),
+        new THREE.Vector3(pts[top].x + Math.cos(a) * R1, pts[top].y, pts[top].z + Math.sin(a) * R1), wall);
+    }
+    tree.hollowInfo = { door: new THREE.Vector3(pts[0].x + Math.cos(doorA) * radii[0], tree.gy + 1, pts[0].z + Math.sin(doorA) * radii[0]), top: c.clone() };
+    return top - 1;
   }
 
   // Space-colonised crown: the skeleton fills the crown envelope, limbs follow the pipe model,
@@ -578,6 +638,8 @@ export class Forest {
       const k = gkey(Math.floor(p.x / G), Math.floor(p.z / G));
       let a = grid.get(k); if (!a) { a = []; grid.set(k, a); } a.push(p);
     };
+    const CLEAR = { emergent: 7, canopy: 2.6, sub: 1.6, under: 0.9, treelet: 0.6 };
+    let curLayer = 'canopy';
     const ok = (x, z, minD, waterGap, cls) => {
       if (Math.hypot(x, z) > R) return false;
       if (T.bankDist(x, z) < waterGap) return false;
@@ -587,7 +649,7 @@ export class Forest {
       for (let di = -6; di <= 6; di++) for (let dj = -6; dj <= 6; dj++) {
         const a = grid.get(gkey(gi + di, gj + dj)); if (!a) continue;
         for (const p of a) {
-          const need = Math.max(minD, p.min) * (cls === 'small' || p.cls === 'small' ? 0.5 : 1);
+          const need = p.layer === curLayer ? Math.max(minD, p.min) : Math.max(p.clear, CLEAR[curLayer]);
           if ((p.x - x) ** 2 + (p.z - z) ** 2 < need * need) return false;
         }
       }
@@ -618,13 +680,14 @@ export class Forest {
     const above = { canopy: ['emergent'], sub: ['emergent', 'canopy'], under: ['canopy', 'sub'], treelet: ['sub', 'under'] };
     const plantIn = (layer, type, opts, x, z, minD) => {
       const tree = this.plant(type, x, z, opts);
-      addPlaced({ x, z, min: minD, cls: layer === 'under' || layer === 'treelet' ? 'small' : 'big' });
+      addPlaced({ x, z, min: minD, layer, clear: Math.max(CLEAR[layer], (tree.radius || 0.1) * 2.2 + (tree.sp.buttress ? 1.5 : 0.3)), cls: layer === 'under' || layer === 'treelet' ? 'small' : 'big' });
       const cr = tree.crownR ?? 2.5;
       splat(layers[layer], tree.crownC ? tree.crownC.x : x, tree.crownC ? tree.crownC.z : z, cr);
       return tree;
     };
     const fill = (layer, type, count, minD, waterGap, opts = {}) => {
       const sp = SPECIES[type];
+      curLayer = layer;
       let made = 0;
       for (let i = 0; i < count; i++) {
         const cr = sp.crown ? rng.range(...sp.crown.R) : (sp.spread ?? sp.leaf?.[1] ?? 2) * 0.8;
@@ -647,6 +710,7 @@ export class Forest {
     // hero trees first
     for (const h of hero) {
       const layer = h.type === 'giant' || h.type === 'kapok' ? 'emergent' : 'canopy';
+      curLayer = layer;
       plantIn(layer, h.type, h.opts || {}, h.x, h.z, h.min ?? 18);
     }
     const D = Math.max(0.6, QUALITY.density);
@@ -654,10 +718,11 @@ export class Forest {
     fill('emergent', 'giant', 5, 34, 4, { samples: 30 });
     fill('emergent', 'kapok', 3, 28, 3, { samples: 30 });
     fill('emergent', 'brazilnut', 4, 24, 4, { samples: 30 });
-    fill('canopy', 'fig', 4, 12, 3);
-    for (let i = 0; i < 2; i++) fill('canopy', 'fig', 1, 12, 3, { treeOpts: { hollow: true, radius: rng.range(1.1, 1.5) } });
+    fill('canopy', 'fig', 8, 10, 3);
+    for (let i = 0; i < 3; i++) fill('emergent', 'fig', 1, 20, 3, { samples: 30, treeOpts: { height: rng.range(40, 50), radius: rng.range(1.0, 1.4) } });
+    for (let i = 0; i < 6; i++) fill('canopy', 'fig', 1, 10, 3, { treeOpts: { hollow: true, radius: rng.range(1.1, 1.6) } });
     fill('canopy', 'ipe', 3, 10, 3);
-    fill('canopy', 'canopy', Math.round(380 * Math.max(0.85, D)), 4, 2, { samples: 18 });
+    fill('canopy', 'canopy', Math.round(380 * Math.max(0.85, D)), 4, 2, { samples: 18, lightSeeking: 0.08 });
     fill('canopy', 'cecropia', 18, 3, 0.5, { pred: (x, z) => T.bankDist(x, z) < 14 });
     // sub-canopy: domed midstory trees, tiered Terminalia, and poles of future emergents
     fill('sub', 'midstory', Math.round(210 * D), 3, 1.5);
@@ -670,6 +735,7 @@ export class Forest {
     fill('treelet', 'bigLeaf', Math.round(520 * D), 1.2, 0.8, { lightSeeking: 0.0, samples: 6 });
     fill('treelet', 'forkTree', Math.round(300 * D), 1.4, 0.8, { samples: 6 });
     fill('treelet', 'sapling', Math.round(560 * D), 1.0, 0.8, { lightSeeking: 0.8, samples: 6 });
+    fill('treelet', 'shrub', Math.round(900 * D), 0.8, 0.6, { lightSeeking: 0.2, samples: 5 });
     this.layers = layers;
     this.placed = placed;
   }

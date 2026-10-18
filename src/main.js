@@ -4,8 +4,9 @@ import { installGlobalChunks, FOG } from './core/shaders.js';
 import { RNG } from './core/rng.js';
 import { buildLeafAtlas, buildBark, buildLitter, buildNoiseTexture, buildRock } from './core/textures.js';
 import { createMaterials } from './core/materials.js';
-import { Batcher, CardSystem, Scatter, Culler } from './core/geometry.js';
-import { Colliders } from './core/colliders.js';
+import { Batcher, CardSystem, Scatter, Culler, PERCH } from './core/geometry.js';
+import { Colliders, SegmentIndex } from './core/colliders.js';
+import { Surfaces } from './player/surfaces.js';
 import { Terrain } from './world/terrain.js';
 import { createSky, bakeEnvironment } from './world/sky.js';
 import { createWater } from './world/water.js';
@@ -73,12 +74,16 @@ async function init() {
   heroPos.y = terrain.height(heroPos.x, heroPos.z);
 
   hud.progress(0.22, 'Growing kapoks, figs and canopy trees…'); await tick();
+  // every world-space branch, vine and root becomes a crawlable surface
+  const perchIndex = new SegmentIndex(2);
+  PERCH.index = perchIndex;
   const forest = new Forest({ terrain, batch, cards, colliders, rng: rng.fork(1) });
   forest.populate({
     hero: [
       { type: 'giant', x: heroPos.x, z: heroPos.z, opts: { height: 64, radius: 2.3, tint: 'mid' }, min: 24 },
       { type: 'fig', x: -16, z: rz0 - 36, opts: { hollow: true, radius: 1.3 }, min: 12 },
       { type: 'ipe', x: 26, z: rz0 - 30, opts: { tint: 'pink' }, min: 10 },
+      { type: 'canopy', x: -9, z: rz0 - 19, opts: { hollowBase: true, radius: 1.05, height: 30 }, min: 6 },
     ],
   });
   forest.hitchhikers(Math.round(70 * Math.max(0.6, QUALITY.density)));
@@ -94,12 +99,16 @@ async function init() {
 
   hud.progress(0.56, 'Planting heliconias, ferns and aroids…'); await tick();
   const plants = new Plants({ terrain, scatter, materials: M, forest, colliders, rng: rng.fork(4) });
+  PERCH.index = null; // plant templates are built in local space
   plants.registerAll();
+  PERCH.index = perchIndex;
   plants.populate();
 
   hud.progress(0.64, 'Settling bromeliads and orchids…'); await tick();
   const epi = new Epiphytes({ forest, scatter, materials: M, cards, batch, terrain, rng: rng.fork(5), plants });
+  PERCH.index = null;
   epi.registerAll();
+  PERCH.index = perchIndex;
   epi.populate();
 
   hud.progress(0.7, 'Felling old giants, waking the ants…'); await tick();
@@ -148,6 +157,7 @@ async function init() {
   const spawn = new THREE.Vector3(-5, 0, rz0 - 11);
   spawn.y = terrain.height(spawn.x, spawn.z) + 1.1;
   const near = spawn.clone();
+  PERCH.index = null; // animals are not climbable
   const fauna = [];
   const frng = rng.fork(9);
   const faunaGroup = new THREE.Group(); faunaGroup.name = 'fauna'; scene.add(faunaGroup);
@@ -162,6 +172,24 @@ async function init() {
   fauna.push(new Caimans(scene, { terrain, rng: frng.fork(6), xs: [-40, 35, 70] }));
   if (ground.antTrail) fauna.push(new Ants(scene, ground.antTrail, frng.fork(7)));
   // arboreal ant highways up the lianas (trunk -> limbs -> over the crowns -> next tree)
+  // foraging ant columns: up the trunks, out along the limbs to the leaves (tests vertical navigability)
+  const foragers = forest.trees.filter((t) => t.skel && t.leafNodes && t.leafNodes.length && t.type !== 'fig')
+    .sort((a, b) => (a.x - spawn.x) ** 2 + (a.z - spawn.z) ** 2 - ((b.x - spawn.x) ** 2 + (b.z - spawn.z) ** 2)).slice(0, 16);
+  foragers.forEach((t, i) => {
+    const pts = [];
+    const { pts: tp, radii: tr } = t.trunk;
+    const a0 = frng.range(0, 6.28);
+    for (let k = 0; k < tp.length; k++) {
+      const a = a0 + k * 0.08;
+      if (tp[k].y < t.gy - 0.05) continue;
+      pts.push(new THREE.Vector3(tp[k].x + Math.cos(a) * (tr[k] + 0.004), tp[k].y, tp[k].z + Math.sin(a) * (tr[k] + 0.004)));
+    }
+    const sk = t.skel, leafI = frng.pick(t.leafNodes), chain = [];
+    for (let k = leafI; k > 0; k = sk.par[k]) chain.push(k);
+    chain.reverse();
+    for (const k of chain) pts.push(new THREE.Vector3(sk.x[k], sk.y[k] + sk.r[k] + 0.004, sk.z[k]));
+    if (pts.length > 4) fauna.push(new Ants(scene, { pts }, frng.fork(60 + i), { count: 90, leaves: false, color: i % 2 ? 0x1a0e06 : 0x6a2a10, speed: 1.4, width: 0.004, scale: 1.5 }));
+  });
   const highways = vines.trails.concat(forest.trails || []).sort((a, b) => a.pts[0].distanceToSquared(spawn) - b.pts[0].distanceToSquared(spawn)).slice(0, 8);
   highways.forEach((tr, i) => fauna.push(new Ants(scene, { pts: tr.pts }, frng.fork(20 + i), { count: 260, leaves: false, color: i % 2 ? 0x1a1008 : 0x6a3010, speed: 1.6, width: 0.012, lift: 0.05 })));
   // frogs: bromeliad tanks, logs and the forest floor near the start
@@ -201,7 +229,10 @@ async function init() {
   // player
   const player = new DragonflyPlayer({ camera, terrain, colliders, dom: renderer.domElement });
   scene.add(player.model);
-  player.perchTargets = world;
+  player.setSurfaces(new Surfaces({ index: perchIndex, colliders, terrain, world, atlas: tex.atlas }));
+  const antColonies = fauna.filter((f) => f instanceof Ants);
+  let antsEaten = 0;
+  const head = new THREE.Vector3();
   terrain.mesh.userData.perch = true;
   world.add(terrain.mesh);
   const toHero = heroPos.clone().sub(spawn);
@@ -315,6 +346,10 @@ async function init() {
     mist.userData.update(t);
     waterFx.userData.update(t);
     for (const f of fauna) f.update(dt, t, cp);
+    player.headPos(head);
+    let ate = 0;
+    for (const a of antColonies) ate += a.tryEat(head, player.perched ? 0.03 : 0.045);
+    if (ate) { antsEaten += ate; hud.setScore(antsEaten); audio.crunch(); }
     // shadows follow the view, snapped to texels in light space
     camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
     sc.copy(cp).addScaledVector(fwd, EXT * 0.55);
